@@ -17,6 +17,8 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
@@ -30,29 +32,17 @@ import org.codehaus.jackson.map.ObjectMapper;
 @SupportedAnnotationTypes(value= {"*"})
 public class JsonSchemaProcessor extends AbstractProcessor {
     
-    //TODO opakujuce sa kusy atd... sprehladnit kod, upratat komentare
-    
-     /*TODO spisat niekam vsetky konvencie a poziadavky potrebne na spravne fungovanie tohto. pocnuc nielen dependency 
-     * na ten projekt s Processorom, ale aj spravnym nastavenim mvn compilera spolu s uvedenim <annotationProcessor>-a!
-     * (este skusit pohladat, ci by to neslo inak, lebo takto na to stopercentne niekto zabudne a bude sa divit)
-     * 
-     * dalej v akych balikoch maju byt tie zdrojove triedy a schemy, aku strukturu maju zhruba mat (co tam MUSI byt, a 
-     * ze z tried sa beru len public metody, co moze byt ale vyhoda v tom, ze ako private si tam mozu napchat hocico)
-     * 
-     * atd atd, proste si dat na tom zalezat, kym si to este pamatam.
-     */
+    //TODO normalne komentare
     
     private Filer filer;
-    private Messager messager;
+    private Messager messager; //TODO warningy pri chybach? (neocakavana struktura zdrojakov atd.)
     
-    private boolean firstRound = true;
-    private List<Element> schemasToGenerate = new ArrayList<>();
-    private List<String> newClasses = new ArrayList<>();
-    
-    //TODO zaviest si Stringovske konstanty na nazvy balikov atd, aby sa to tu hore dalo dobre nastavovat
-    //TODO vymysliet s tymito... mozno by sa to potom dalo nejak konfigurovat zvonka? ci to je zbytocne, radsej konvencie?
     private static final String SCHEMAS_PACKAGE = "schemas";
     private static final String EVENTS_PACKAGE = "events";
+    
+    private boolean firstRound = true; //TODO nejak lepsie by to neslo? :)
+    private List<Element> schemasToGenerate = new ArrayList<>();
+    private List<String> newClasses = new ArrayList<>();
 
     @Override
     public void init(ProcessingEnvironment env) {
@@ -67,7 +57,19 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                                            //   opakovat nazvy (TODO alebo to mam nejak osefovat?)
                                                            //edit: ak len 1 pkg EVENTS, nebudu sa opakovat :) ale pozor ak viac
         
-        if (env.processingOver()) { //last Round - vygenerujeme schemy zo vsetkych tried okrem tych novych
+        if (! env.processingOver()) { //s najdenymi triedami nic zatial nerob, az na konci; iba si ich zapamataj
+            if (firstRound) {
+                for (Element element : env.getRootElements()) {
+                    String pack = element.getEnclosingElement().toString();
+
+                    if (pack.equals(EVENTS_PACKAGE)) {
+                        schemasToGenerate.add(element);
+                        processedClasses.add(element.getSimpleName().toString());
+                    }
+                }
+                //firstRound = false --> hlavne to nedavat sem! je to dolu az po prejdeni vsetkych tych schem
+            }
+        } else { //last Round - vygenerujeme schemy zo vsetkych tried okrem tych novych
             for (Element element : schemasToGenerate) {
                 String elementName = element.getSimpleName().toString();
                 
@@ -78,38 +80,51 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                 String schemaName = elementName.substring(0, 1).toUpperCase() + elementName.substring(1);
                 String classContentBeginning = "{\n"
                                              + "    \"$schema\": \"http://json-schema.org/schema#\",\n"
-                                             + "    \"title\":\"" + schemaName + "\",\n"
+                                             + "    \"title\": \"" + schemaName + "\",\n"
                                              + "    \"type\": [\"object\"],\n"
                                              + "    \"properties\": {\n"
-                                             + "        \"eventType\": {\n" //mozem to nazvat aj inak ako eventType, ak to neni OK
-                                             + "            \"type\":\"object\",\n"
+                                             + "        \"eventType\": {\n" //TODO nazvat inak ako eventType?
+                                             + "            \"type\": \"object\",\n"
                                              + "            \"oneOf\": [\n";
 
-                String classContentRefs = ""; //sem potom nasupem tie referencie na subschemy metod
+                String classContentRefs = ""; //sem potom nasupem tie odkazy na subschemy metod
 
                 String classContentEnd = "\n"
                                        + "            ]\n"
                                        + "        }\n"
                                        + "    },\n"
-                                       + "    \"required\":[\"eventType\"],\n"
+                                       + "    \"required\": [\"eventType\"],\n"
                                        + "    \"definitions\": {\n";
                 boolean putComma = false;
                 for (Element e: element.getEnclosedElements()) {
                     if ((e.getKind() == ElementKind.METHOD) && e.getModifiers().contains(Modifier.PUBLIC)) {
-                        //najprv to doplnit do referencii
+                        ExecutableElement method = (ExecutableElement) e;
+                        
+                        //skontrolovat, ci vracia Map<String,Object>
+                        if (method.getReturnType() instanceof DeclaredType) {
+                            DeclaredType returnType = (DeclaredType)(method.getReturnType());
+                            if (! returnType.toString().equals("java.util.Map<java.lang.String,java.lang.Object>")) {
+                                messager.printMessage(Diagnostic.Kind.NOTE, "Method \"" + method.getSimpleName().toString() + "\" will not be reflected in the corresponding JSON schema. Only public methods returning Map<String,Object> are included.", method);
+                                continue;
+                            }
+                        } else {
+                            messager.printMessage(Diagnostic.Kind.NOTE, "Method \"" + method.getSimpleName().toString() + "\" will not be reflected in the corresponding JSON schema. Only public methods returning Map<String,Object> are included.", method);
+                            continue;
+                        }
+                        
+                        //najprv to doplnit do odkazov
                         if (putComma) {
                             classContentRefs += ",\n";
                             classContentEnd += ",\n";
                         } else {
                             putComma = true;
                         }
-                        classContentRefs += "                {\"$ref\":\"#/definitions/" + e.getSimpleName().toString() + "\"}";
+                        classContentRefs += "                {\"$ref\": \"#/definitions/" + e.getSimpleName().toString() + "\"}";
 
                         //potom napisat subschemu pre danu metodu
                         classContentEnd += "        \"" + e.getSimpleName().toString() + "\": {\n"
-                                         + "            \"properties\":{\n";
+                                         + "            \"properties\": {\n";
                         //vypisat vsetky parametre aj s typmi
-                        ExecutableElement method = (ExecutableElement) e;
                         boolean comma = false;
                         List<String> paramNames = new ArrayList<>();
                         for (VariableElement param : method.getParameters()) {
@@ -140,14 +155,14 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                 comma = true;
                             }
                             classContentEnd += "                \"" + param.getSimpleName().toString() + "\": {\n"
-                                             + "                    \"type\":\"" + jschType + "\"\n"
+                                             + "                    \"type\": \"" + jschType + "\"\n"
                                              + "                }";
                             paramNames.add(param.getSimpleName().toString());
                         }
 
                         classContentEnd += "\n"
                                          + "            },\n"
-                                         + "            \"required\":[";
+                                         + "            \"required\": [";
                         comma = false;
                         for (String param : paramNames) {
                             if (comma) {
@@ -158,7 +173,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             classContentEnd += "\"" + param + "\"";
                         }
                         classContentEnd += "],\n"
-                                + "            \"additionalProperties\":false\n"
+                                + "            \"additionalProperties\": false\n"
                                 + "        }";
                     }
                 }
@@ -176,26 +191,12 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             .append(classContentBeginning + classContentRefs + classContentEnd)
                             .close();
                 } catch (IOException ex) {
-                    //TODO
+                    messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + schemaName + ".jsch");
                 }
-
-                //na tomto mieste by som mala mat vygenerovanu komplet schemu pre tuto jednu triedu
-            }
-        } else { //s najdenymi triedami nic zatial nerob, az na konci; iba si ich zapamataj
-            if (firstRound) {
-                for (Element element : env.getRootElements()) {
-                    String pack = element.getEnclosingElement().toString();
-
-                    if (pack.equals(EVENTS_PACKAGE)) {
-                        schemasToGenerate.add(element);
-                        processedClasses.add(element.getSimpleName().toString());
-                    }
-                }
-                //firstRound = false --> hlavne to nedavat sem! to sa urobi az po prejdeni vsetkych tych schem
             }
         }
         
-        //ok, to by sme mali generovanie schem z tried, a teraz este doplnit zo schem tie triedy, ktore neexistuju
+        //ok, teraz este doplnit zo schem tie triedy, ktore neexistuju
         String path = "src" + File.separatorChar + "main" + File.separatorChar + "java" + File.separatorChar
                     + SCHEMAS_PACKAGE.replace('.', File.separatorChar);
 
@@ -213,19 +214,18 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                     }
 
                     if (filename.toLowerCase().endsWith(".jsch")) {
-                        //a tu si preskumame ten subor a urobime s nim, co potrebujeme
                         ObjectMapper mapper = new ObjectMapper();
                         JsonNode root;
                         try {
                             root = mapper.readTree(new File(files[i].toString()));
 
-                            String className = filename.substring(0, 1).toUpperCase()
-                                    + filename.substring(1, filename.length() - 5); //meno triedy je meno tej JSON Schemy
-                            String classContent =
-                                      "package " + EVENTS_PACKAGE + ";\n\n"
-                                    + "import java.util.HashMap;\n"
-                                    + "import java.util.Map;\n\n"
-                                    + "public class " + className + " {\n";
+                            //meno triedy je meno .jsch suboru (bez pripony)
+                            String className = filename.substring(0, 1).toUpperCase() + filename.substring(1, filename.length() - 5);
+                            
+                            String classContent = "package " + EVENTS_PACKAGE + ";\n\n"
+                                                + "import java.util.HashMap;\n"
+                                                + "import java.util.Map;\n\n"
+                                                + "public class " + className + " {\n";
 
                             JsonNode definitions = root.get("definitions");
                             Iterator<String> methodsIterator = definitions.getFieldNames();
@@ -291,7 +291,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             //posledna metoda
                             //spolocne veci pre vsetky metody, aby boli malinke
                             classContent += "\n    private static Map<String, Object> log(String[] names, Object... values) {\n"
-                                            + "        Map<String, Object> map = new HashMap<String, Object>();\n\n"
+                                            + "        Map<String, Object> map = new HashMap<>();\n\n"
                                             + "        for (int i = 0; i < names.length; i++) {\n"
                                             + "            map.put(names[i], values[i]);\n"
                                             + "        }\n\n"
@@ -309,9 +309,8 @@ public class JsonSchemaProcessor extends AbstractProcessor {
 
                             newClasses.add(className); //poznacit si, ktoru sme vygenerovali teraz
                         } catch (IOException ex) {
+                            messager.printMessage(Diagnostic.Kind.ERROR, filename + ": unexpected format of schema");
                         }
-
-                        //na tomto mieste by som mala mat vygenerovanu triedu so vsetkymi metodami
                     }
                 }
             }
