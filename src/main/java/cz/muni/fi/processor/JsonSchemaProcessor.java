@@ -1,4 +1,4 @@
-package cz.muni.fi.pokus.jsonschemaprocessor;
+package cz.muni.fi.processor;
 
 import java.io.File;
 import java.io.IOException;
