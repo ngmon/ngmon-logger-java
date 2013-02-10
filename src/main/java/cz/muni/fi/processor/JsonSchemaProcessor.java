@@ -7,8 +7,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -32,6 +35,7 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.node.ArrayNode;
 
 /**
  *
@@ -40,12 +44,6 @@ import org.codehaus.jackson.map.ObjectMapper;
 @SupportedAnnotationTypes(value= {"*"})
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class JsonSchemaProcessor extends AbstractProcessor {
-    
-    //TODO zmenit kompletne strukturu schem - zvlast entity, zvlast typy udalosti
-    /* pozor na tie baliky teraz:
-       triede src/main/java/LOGGER.bla.bla.L_Entity.java zodpoveda
-       schema src/main/resources/ENTITIES.bla.bla.Entity.json,
-       v ktorej su vymenovane potrebne malinke schemy z src/main/resources/SCHEMAS.(hocico) */
     
     //TODO normalne komentare
     
@@ -58,7 +56,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private static final String CLASS_PREFIX = "L_";
     
     private long lastBuildTime = 0;
-    private boolean firstRound = true; //TODO nejak lepsie by to neslo? :)
+    private boolean firstRound = true;
     private List<Element> schemasToGenerate = new ArrayList<>();
     private List<String> newClasses = new ArrayList<>();
 
@@ -76,10 +74,9 @@ public class JsonSchemaProcessor extends AbstractProcessor {
         }
     }
 
-    //multiple rounds cause multiple problems
     @Override
     public boolean process(Set elements, RoundEnvironment env) {
-        List<String> processedClasses = new ArrayList<>(); //TODO davat sem fully qualified mena, resp. s balikmi okrem LOGGER
+        List<String> processedClasses = new ArrayList<>();
         
         if (! env.processingOver()) { //s najdenymi triedami nic zatial nerob, az na konci; iba si ich zapamataj
             if (firstRound) {
@@ -87,7 +84,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                     String pack = element.getEnclosingElement().toString();
                     
                     if (pack.equals(CLASSES_BASE_PKG) || pack.startsWith(CLASSES_BASE_PKG + ".")) { //TODO
-                        processedClasses.add(element.getSimpleName().toString());
+                        processedClasses.add(pack + "." + element.getSimpleName().toString());
                         
                         //generovat schemu, len ak je trieda zmenena (zatial kontrolovat takto, potom to este premysliet):
                         String path = "src" + File.separatorChar + "main" + File.separatorChar + "java" + File.separatorChar
@@ -106,124 +103,147 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                         }
                     }
                 }
-                //firstRound = false --> hlavne to nedavat sem! je to dolu az po prejdeni vsetkych tych schem
             }
         } else { //last Round - vygenerujeme schemy zo vsetkych tried okrem tych novych
             for (Element element : schemasToGenerate) {
+                String pack = element.getEnclosingElement().toString();
                 String elementName = element.getSimpleName().toString();
                 
-                if (newClasses.contains(elementName)) {
+                if (newClasses.contains(pack + "." + elementName)) {
                     continue;
                 }
                 
-                String schemaName = elementName.substring(CLASS_PREFIX.length()); //oddelat prefix z nazvu triedy
-                String classContentBeginning = "{\n"
+                String schemasPack = SCH_EVENTTYPES_BASE_PKG + pack.substring(CLASSES_BASE_PKG.length());
+                String entitySchemaName = elementName.substring(CLASS_PREFIX.length()); //oddelat prefix z nazvu triedy
+                String entitySchemaContent = "{\n"
                                              + "    \"$schema\": \"http://json-schema.org/schema#\",\n"
-                                             + "    \"title\": \"" + schemaName + "\",\n"
-                                             + "    \"type\": [\"object\"],\n"
-                                             + "    \"properties\": {\n"
-                                             + "        \"eventType\": {\n" //TODO nazvat inak ako eventType?
-                                             + "            \"type\": \"object\",\n"
-                                             + "            \"oneOf\": [\n";
+                                             + "    \"title\": \"" + entitySchemaName + "\",\n"
+                                             + "    \"eventTypes\": [\n";
 
-                String classContentRefs = ""; //sem potom nasupem tie odkazy na subschemy metod
-
-                String classContentEnd = "\n"
-                                       + "            ]\n"
-                                       + "        }\n"
-                                       + "    },\n"
-                                       + "    \"required\": [\"eventType\"],\n"
-                                       + "    \"definitions\": {\n";
+                
                 boolean putComma = false;
                 for (Element e: element.getEnclosedElements()) {
                     if ((e.getKind() == ElementKind.METHOD) && e.getModifiers().contains(Modifier.PUBLIC)) {
                         ExecutableElement method = (ExecutableElement) e;
                         
-                        //skontrolovat, ci vracia Map<String,Object> - netreba, budu void (budu len logovat) a do jsch idu VSETKY
+                        //nazov metody a jej schemicky sa nemusi zhodovat; mapovanie bude v scheme pre entitu
+                        //(aby sa to trochu menej plietlo: "schemicka" = pre metodu, "schema" = pre entitu)
+                        String methodName = method.getSimpleName().toString();
+                        String methodSchemaName = method.getSimpleName().toString();
                         
-                        //najprv to doplnit do odkazov
-                        if (putComma) {
-                            classContentRefs += ",\n";
-                            classContentEnd += ",\n";
-                        } else {
-                            putComma = true;
-                        }
-                        classContentRefs += "                {\"$ref\": \"#/definitions/" + e.getSimpleName().toString() + "\"}";
-
-                        //potom napisat subschemu pre danu metodu
-                        classContentEnd += "        \"" + e.getSimpleName().toString() + "\": {\n"
-                                         + "            \"properties\": {\n";
-                        //vypisat vsetky parametre aj s typmi
-                        boolean comma = false;
+                        //TODO messager.error - zakazat pretazovanie metod, lebo by s tym bola asi tak miliarda problemov
+                        
+                        //ziskat vsetky parametre aj s typmi
                         List<String> paramNames = new ArrayList<>();
+                        List<String> paramTypes = new ArrayList<>();
                         for (VariableElement param : method.getParameters()) {
                             String typeFull = param.asType().toString();
                             String type = typeFull.substring(typeFull.lastIndexOf(".") + 1); //kvoli fully qualified menam
-                            String jschType;
                             switch (type) {
                                 case "String":
-                                    jschType = "string";
+                                    paramTypes.add("string");
                                     break;
                                 case "int":
-                                    jschType = "integer";
+                                    paramTypes.add("integer");
                                     break;
                                 case "double":
                                 case "float":
-                                    jschType = "number";
+                                    paramTypes.add("number");
                                     break;
                                 case "boolean":
-                                    jschType = "boolean";
+                                    paramTypes.add("boolean");
                                     break;
                                 default:
-                                    jschType = "object";
+                                    paramTypes.add("object");
                             }
 
-                            if (comma) {
-                                classContentEnd += ",\n";
-                            } else {
-                                comma = true;
-                            }
-                            classContentEnd += "                \"" + param.getSimpleName().toString() + "\": {\n"
-                                             + "                    \"type\": \"" + jschType + "\"\n"
-                                             + "                }";
                             paramNames.add(param.getSimpleName().toString());
                         }
-
-                        classContentEnd += "\n"
-                                         + "            },\n"
-                                         + "            \"required\": [";
-                        comma = false;
-                        for (String param : paramNames) {
+                        
+                        //ok, tu mam vsetko potrebne na to, aby som mohla kontrolovat, ci sa to zhoduje so schemickou
+                        //(pocas toho sa moze zmenit methodSchemaName)
+                        //TODO osefovat vsetky tie pripady metod s rovnakymi nazvami, ako to mam navrhnute na papieri
+                        
+                        //vygenerovat obsah schemicky po vsetkych kontrolach:
+                        String methodSchemaContent = "{\n"
+                                                   + "    \"$schema\": \"http://json-schema.org/schema#\",\n"
+                                                   + "    \"title\": \"" + methodSchemaName + "\",\n"
+                                                   + "    \"type\": [\"object\"],\n"
+                                                   + "    \"properties\": {\n";
+                        //teraz vsetky parametre s typmi:
+                        String required = "";
+                        boolean comma = false;
+                        for (int i = 0; i < paramNames.size(); i++) {
                             if (comma) {
-                                classContentEnd += ",";
+                                methodSchemaContent += ",\n";
+                                required += ",";
                             } else {
                                 comma = true;
                             }
-                            classContentEnd += "\"" + param + "\"";
+                            
+                            methodSchemaContent += "        \"" + paramNames.get(i) + "\": {\n"
+                                                 + "            \"type\": \"" + paramTypes.get(i) + "\"\n"
+                                                 + "        }";
+                            required += "\"" + paramNames.get(i) + "\"";
                         }
-                        classContentEnd += "],\n"
-                                + "            \"additionalProperties\": false\n"
-                                + "        }";
+                        methodSchemaContent += "\n"
+                                             + "    },\n"
+                                             + "    \"required\": [" + required + "],\n"
+                                             + "    \"additionalProperties\": false\n"
+                                             + "}";
+                        
+                        //vyrobit subor pre schemicku
+                        try {
+                            //TODO este doriesit tie baliky; skontrolovat
+                            String path = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + 
+                                    schemasPack.replace('.', File.separatorChar) + File.separatorChar + methodSchemaName + ".json";
+                            Path file = FileSystems.getDefault().getPath(path);
+
+                            //vytvorit neexistujuce adresare
+                            Files.createDirectories(file.getParent());
+
+                            try (BufferedWriter writer = Files.newBufferedWriter(file, Charset.defaultCharset())) {
+                                writer.append(methodSchemaContent);
+                            }
+                        } catch (IOException ex) {
+                            messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + methodSchemaName + ".json");
+                        }
+                        
+                        //poznamenat si pouzitie tejto metody do schemy pre entitu; schvalne az teraz, pretoze medzitym sa
+                        //  mohla vygenerovat schemicka s inym nazvom, ako mala povodna metoda
+                        if (putComma) {
+                            entitySchemaContent += ",\n";
+                        } else {
+                            putComma = true;
+                        }
+                        entitySchemaContent += "        {\"" + methodName + "\": \"" + schemasPack + "." + methodSchemaName + "\"}";
                     }
                 }
 
-                classContentEnd += "\n"
-                                 + "    }\n"
-                                 + "}";
-
-                //...a cele to zapisat do suboru
-                //In general, processors must not knowingly attempt to overwrite existing files that
-                //   were not generated by some processor. --> Skoda, presne to idem totiz urobit.
+                //dopisat zvysok schemy pre entitu
+                entitySchemaContent += "\n    ]\n"
+                                       + "}";
+                
+                //...a zapisat ju do suboru
                 try {
-                    //TODO este doriesit tie baliky
-                    //filer.createResource som nedokazala presvedcit, aby tie subory vytvaral v src/main/resources, takze rucne:
-                    String path = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + SCH_EVENTTYPES_BASE_PKG + File.separatorChar + schemaName + ".json";
+                    //TODO este doriesit tie baliky; skontrolovat
+                    String classPackage = pack.substring(CLASSES_BASE_PKG.length());
+                    if (classPackage.equals("")) {
+                        classPackage = ".";
+                    }
+                    String path = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + 
+                            SCH_ENTITIES_BASE_PKG + classPackage.replace('.', File.separatorChar) + 
+                            File.separatorChar + entitySchemaName + ".json";
                     Path file = FileSystems.getDefault().getPath(path);
+                    
+                    //vytvorit neexistujuce adresare
+                    Files.createDirectories(file.getParent());
+                    
                     try (BufferedWriter writer = Files.newBufferedWriter(file, Charset.defaultCharset())) {
-                        writer.append(classContentBeginning + classContentRefs + classContentEnd);
+                        writer.append(entitySchemaContent);
                     }
                 } catch (IOException ex) {
-                    messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + schemaName + ".json");
+                    messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + entitySchemaName + ".json");
                 }
             }
             
@@ -237,126 +257,130 @@ public class JsonSchemaProcessor extends AbstractProcessor {
             }
         }
         
-        //ok, teraz este doplnit zo schem tie triedy, ktore neexistuju
-        String path = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar
-                    + SCH_EVENTTYPES_BASE_PKG;
-
+        
         if (firstRound) {
-            //TODO prerobit s pouzitim Java 7 Path API?
-            File folder = new File(path);
-            File[] files = folder.listFiles();
-
-            //TODO preliezt rekurzivne vsetky baliky
-            for (int i = 0; i < files.length; i++) {
-                if (files[i].isFile()) {
-                    String filename = files[i].getName();
-
-                    if (processedClasses.contains(CLASS_PREFIX + filename.substring(0, filename.length() - 5))) {
-                        continue;
-                    }
-
-                    if (filename.toLowerCase().endsWith(".json")) {
-                        ObjectMapper mapper = new ObjectMapper();
-                        JsonNode root;
-                        try {
-                            root = mapper.readTree(new File(files[i].toString()));
-
-                            //meno triedy je meno .jsch suboru (bez pripony)
-                            String className = CLASS_PREFIX + filename.substring(0, 1).toUpperCase() + filename.substring(1, filename.length() - 5);
-                            
-                            String classContent = "package " + CLASSES_BASE_PKG + ";\n\n" //TODO doplnit package tej triedy
-                                                + "import " + CLASSES_BASE_PKG + ".Logger;\n"
-                                                + "import java.util.Map;\n\n"
-                                                + "public class " + className + " extends Logger {\n";
-
-                            JsonNode definitions = root.get("definitions");
-                            Iterator<String> methodsIterator = definitions.getFieldNames();
-                            while (methodsIterator.hasNext()) {
-                                List<String> keys = new ArrayList<>();
-                                String methodName = methodsIterator.next();
-                                classContent += "\n    public static Map<String, Object> " + methodName + "(";
-                                JsonNode method = definitions.get(methodName);
-                                JsonNode parameters = method.get("properties");
-                                Iterator<String> paramsIterator = parameters.getFieldNames();
-                                boolean putComma = false;
-                                while (paramsIterator.hasNext()) {
-                                    if (putComma) {
-                                        classContent += ", ";
-                                    } else {
-                                        putComma = true;
-                                    }
-                                    String paramName = paramsIterator.next();
-                                    keys.add(paramName);
-                                    JsonNode param = parameters.get(paramName);
-                                    switch (param.get("type").getTextValue()) {
-                                        case "string":
-                                            classContent += "String ";
-                                            break;
-                                        case "integer":
-                                            classContent += "int ";
-                                            break;
-                                        case "number":
-                                            classContent += "double ";
-                                            break;
-                                        case "boolean":
-                                            classContent += "boolean ";
-                                            break;
-                                        default:
-                                            classContent += "Object ";
-                                    }
-                                    classContent += paramName;
+            //TODO ako prve vygenerovat LOGGER.Logger, ak tam este nie je?
+            
+            String entitiesDir = "src" + File.separator + "main" + File.separator + "resources" + File.separator + SCH_ENTITIES_BASE_PKG;
+            final int entitiesDirPrefixLength = entitiesDir.length();
+            final List<String> processed = processedClasses; //inak hubuje ze local variable accessed from within inner class
+            try {
+                Files.walkFileTree(FileSystems.getDefault().getPath(entitiesDir), new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
+                        String filename = path.getFileName().toString();
+                        
+                        if (filename.toLowerCase().endsWith(".json")) {
+                            String classPackage = ""; //".cz.muni.fi" pre "LOGGER.cz.muni.fi.L_Entity.java" alebo "" pre "LOGGER.L_Entity.java"
+                            {
+                                String dir = path.toString().substring(0, path.toString().length() - filename.length() - 1);
+                                if (dir.length() != entitiesDirPrefixLength) {
+                                    classPackage = "." + dir.substring(entitiesDirPrefixLength + 1).replace(File.separatorChar, '.');
                                 }
-                                //zavriet tu zatvorku za parametrami metody, dopisat telo metody
-                                classContent += ") {\n"
-                                        + "        return log(new String[]{";
-                                //tu musia nasledovat vsetky parametre oddelene ciarkami, pozor, v uvodzovkach!
-                                putComma = false;
-                                for (int k = 0; k < keys.size(); k++) {
-                                    if (putComma) {
-                                        classContent += ",";
-                                    } else {
-                                        putComma = true;
-                                    }
-
-                                    classContent += "\"" + keys.get(k) + "\"";
-                                }
-                                //a tu skonci to pole stringov
-                                classContent += "}";
-                                //a odtialto tam zas idu vsetky parametre
-                                for (int k = 0; k < keys.size(); k++) {
-                                    classContent += ", " + keys.get(k);
-                                }
-                                classContent += ");\n" //koniec volania logovacej metody
-                                        + "    }\n"; //uzavriet metodu
                             }
+                            
+                            if (processed.contains(CLASSES_BASE_PKG + classPackage + "." + CLASS_PREFIX + filename.substring(0, filename.length() - 5))) {
+                                return FileVisitResult.CONTINUE;
+                            }
+                            
+                            ObjectMapper mapper = new ObjectMapper();
+                            JsonNode entitySchemaRoot;
+                            try {
+                                entitySchemaRoot = mapper.readTree(path.toFile());
+                                
+                                //TODO ak entita neodkazuje na ziadne metody, len ju zmaz, negeneruj z nej ziadnu triedu.
+                                //(neviem sice, kedy by to mohlo nastat, ale spravat by sa to malo takto.)
+                                
+                                //meno triedy je L_menoSuboruSoSchemouPreEntitu (bez pripony)
+                                String className = CLASS_PREFIX + filename.substring(0, 1).toUpperCase() + filename.substring(1, filename.length() - 5);
+                                
+                                String classContent = "package " + CLASSES_BASE_PKG + classPackage + ";\n\n";
+                                if (! classPackage.equals("")) {
+                                    classContent += "import " + CLASSES_BASE_PKG + ".Logger;\n";
+                                }
+                                classContent += "import java.util.Map;\n\n"
+                                              + "public class " + className + " extends Logger {\n";
+                                
+                                //prejdi vsetky subory so schemickami a generuj metody
+                                ArrayNode eventTypes = (ArrayNode)(entitySchemaRoot.get("eventTypes"));
+                                for (int i = 0; i < eventTypes.size(); i++) {
+                                    JsonNode methodNode = eventTypes.get(i);
+                                    Iterator<String> it = methodNode.getFieldNames();
+                                    String methodName = "";
+                                    String schemaPack = "";
+                                    while (it.hasNext()) { //malo by prejst iba raz... TODO vymysliet inak?
+                                        methodName = it.next();
+                                        schemaPack = methodNode.get(methodName).getTextValue();
+                                    }
+                                    
+                                    //TODO teraz sa pohrabat v tom subore na methodSchemaPath a doplnit vsetko info k metode
+                                    String methodSchemaPath = "src" + File.separator + "main" + File.separator + "resources" + File.separator
+                                            + schemaPack.replace('.', File.separatorChar) + ".json";
+                                    Path methodSchema = FileSystems.getDefault().getPath(methodSchemaPath);
+                                    JsonNode methodSchemaRoot = mapper.readTree(methodSchema.toFile());
+                                    JsonNode parameters = methodSchemaRoot.get("properties");
+                                    Iterator<String> paramsIterator = parameters.getFieldNames();
+                                    boolean putComma = false;
+                                    classContent += "\n    public static Map<String, Object> " + methodName + "(";
+                                    String strings = "";
+                                    String args = "";
+                                    while (paramsIterator.hasNext()) {
+                                        if (putComma) {
+                                            classContent += ", ";
+                                            strings += ",";
+                                            //schvalne tu nie je 'args += ", ";' - robilo to problemy pri bezparametrickych metodach.
+                                            //take by sice nemali byt, ale uzivatelia su zakerni
+                                        } else {
+                                            putComma = true;
+                                        }
+                                        String paramName = paramsIterator.next();
+                                        JsonNode param = parameters.get(paramName);
+                                        switch (param.get("type").getTextValue()) {
+                                            case "string":
+                                                classContent += "String ";
+                                                break;
+                                            case "integer":
+                                                classContent += "int ";
+                                                break;
+                                            case "number":
+                                                classContent += "double ";
+                                                break;
+                                            case "boolean":
+                                                classContent += "boolean ";
+                                                break;
+                                            default:
+                                                classContent += "Object ";
+                                        }
+                                        classContent += paramName;
+                                        strings += "\"" + paramName + "\"";
+                                        args += ", " + paramName;
+                                    }
+                                    //zavriet tu zatvorku za parametrami metody, dopisat telo metody
+                                    classContent += ") {\n" + "        return log(new String[]{" + strings + "}" + args + ");\n" + "    }\n";
+                                }
+                                
+                                //potom na zaver dokonci triedu a zapis ju do suboru
+                                classContent += "}\n";
+                                
+                                JavaFileObject file = filer.createSourceFile(CLASSES_BASE_PKG + classPackage + "." + className); //bacha! povodne tu bolo "/" miesto ".", a preto to neslo!
+                            
+                                file.openWriter()
+                                        .append(classContent)
+                                        .close();
 
-                            //TODO presunut do Loggera
-//                            //posledna metoda
-//                            //spolocne veci pre vsetky metody, aby boli malinke
-//                            classContent += "\n    private static Map<String, Object> log(String[] names, Object... values) {\n"
-//                                            + "        Map<String, Object> map = new HashMap<>();\n\n"
-//                                            + "        for (int i = 0; i < names.length; i++) {\n"
-//                                            + "            map.put(names[i], values[i]);\n"
-//                                            + "        }\n\n"
-//                                            + "        return map;\n"
-//                                            + "    }\n";
-
-                            classContent += "}\n"; //uzavriet triedu
-
-                            //a cele to zapisat do suboru
-                            JavaFileObject file = filer.createSourceFile(CLASSES_BASE_PKG + "." + className); //bacha! povodne tu bolo "/" miesto ".", a preto to neslo!
-
-                            file.openWriter()
-                                    .append(classContent)
-                                    .close();
-
-                            newClasses.add(className); //poznacit si, ktoru sme vygenerovali teraz
-                        } catch (IOException ex) {
-                            messager.printMessage(Diagnostic.Kind.ERROR, filename + ": unexpected format of schema");
+                                newClasses.add(CLASSES_BASE_PKG + classPackage + "." + className); //poznacit si, ktoru sme vygenerovali teraz
+                            } catch (IOException ex) {
+                                messager.printMessage(Diagnostic.Kind.ERROR, filename + ": unexpected format of schema");
+                            }
                         }
+                        
+                        return FileVisitResult.CONTINUE;
                     }
-                }
+                });
+            } catch (IOException ex) {
+                //TODO
             }
+            
             firstRound = false;
         }
         
