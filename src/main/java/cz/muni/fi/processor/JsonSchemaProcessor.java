@@ -42,23 +42,15 @@ import javax.lang.model.element.VariableElement;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
-/**
- *
- * @author Andrejka
- */
 @SupportedAnnotationTypes(value= {"*"})
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class JsonSchemaProcessor extends AbstractProcessor {
     
-    //TODO normalne komentare
-    
-    //TODO premenovat premenne, ucesat kod
-    
     private Filer filer;
     private Messager messager;
     
-    private static final String SCH_ENTITIES_BASE_PKG = "ENTITIES";
-    private static final String SCH_EVENTTYPES_BASE_PKG = "SCHEMAS";
+    private static final String ENTITIES_BASE_PKG = "ENTITIES";
+    private static final String EVENTTYPES_BASE_PKG = "SCHEMAS";
     private static final String CLASSES_BASE_PKG = "LOGGER";
     private static final String LOGGER = "Logger";
     private static final String CLASS_PREFIX = "L_";
@@ -94,7 +86,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                     if (pack.equals(CLASSES_BASE_PKG) || pack.startsWith(CLASSES_BASE_PKG + ".")) {
                         processedClasses.add(pack + "." + element.getSimpleName().toString());
                         
-                        //generovat schemu, len ak je trieda zmenena (zatial kontrolovat takto, potom to este premysliet):
+                        //process only classes changed since the last build
                         String path = "src" + File.separatorChar + "main" + File.separatorChar + "java" + File.separatorChar
                             + pack.replace('.', File.separatorChar) + File.separatorChar + element.getSimpleName() + ".java";
                         Path p = FileSystems.getDefault().getPath(path);
@@ -111,7 +103,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                     }
                 }
             }
-        } else { //last Round - vygenerujeme schemy zo vsetkych tried okrem tych novych
+        } else { //last round - generate schemas for all classes (except for those that have just been created)
             for (Element element : schemasToGenerate) {
                 String pack = element.getEnclosingElement().toString();
                 String elementName = element.getSimpleName().toString();
@@ -120,20 +112,20 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                     continue;
                 }
                 
-                String entitySchemaName = elementName.substring(CLASS_PREFIX.length()); //oddelat prefix z nazvu triedy
+                String entitySchemaName = elementName.substring(CLASS_PREFIX.length());
                 try {
                     String classPackage = pack.substring(CLASSES_BASE_PKG.length());
                     String path = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + 
-                            SCH_ENTITIES_BASE_PKG + classPackage.replace('.', File.separatorChar) + 
+                            ENTITIES_BASE_PKG + classPackage.replace('.', File.separatorChar) + 
                             File.separatorChar + entitySchemaName + ".json";
                     Path file = FileSystems.getDefault().getPath(path);
                     
-                    //vytvorit neexistujuce adresare
+                    //create non-existing directories
                     Files.createDirectories(file.getParent());
                     
                     ObjectMapper mapper = new ObjectMapper();
                     
-                    //este pred prepisanim schemy pre tu entitu si zapamatam jej povodny obsah - budem to potrebovat neskor
+                    //save the original content of this entity schema for later tests
                     JsonNode formerEntitySchema = null;
                     if (file.toFile().exists()) {
                         formerEntitySchema = mapper.readTree(file.toFile());
@@ -153,23 +145,21 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             if ((e.getKind() == ElementKind.METHOD) && e.getModifiers().contains(Modifier.PUBLIC)) {
                                 ExecutableElement method = (ExecutableElement) e;
                                 
-                                //nazov metody a jej schemicky sa nemusi zhodovat; mapovanie bude v scheme pre entitu
-                                //(aby sa to trochu menej plietlo: "schemicka" = pre metodu, "schema" = pre entitu)
                                 String methodName = method.getSimpleName().toString();
                                 String methodSchemaName = method.getSimpleName().toString();
-                                //zakazat pretazovanie metod
+                                //forbid method overloading
                                 if (methodNames.contains(methodName)) {
                                     messager.printMessage(Diagnostic.Kind.ERROR, "Method overloading not allowed here", e);
                                 } else {
                                     methodNames.add(methodName);
                                 }
                                 
-                                //ziskat vsetky parametre aj s typmi
+                                //get parameter names and types
                                 List<String> paramNames = new ArrayList<>();
                                 List<String> paramTypes = new ArrayList<>();
                                 for (VariableElement param : method.getParameters()) {
                                     String typeFull = param.asType().toString();
-                                    String type = typeFull.substring(typeFull.lastIndexOf(".") + 1); //kvoli fully qualified menam
+                                    String type = typeFull.substring(typeFull.lastIndexOf(".") + 1);
                                     switch (type) {
                                         case "String":
                                             paramTypes.add("string");
@@ -191,75 +181,60 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     paramNames.add(param.getSimpleName().toString());
                                 }
                                 
-                                //ziskat balik schemicky
+                                //get target package
                                 String targetPackage;
                                 if (method.getAnnotation(Namespace.class) == null) {
                                     targetPackage = classPackage;
                                 } else {
-                                    //anotacia ma prednost pred balikom triedy
                                     targetPackage = method.getAnnotation(Namespace.class).value();
                                     if (! targetPackage.equals("")) {
                                         targetPackage = "." + targetPackage;
                                     }
                                 }
                                 
-                                //skontrolovat ako prvu tu schemicku, ktoru ma namapovanu v entite
+                                //first check if the method conforms to the same schema it did before
                                 String formerMethodSchemaFile = "";
-                                if (formerEntitySchema != null) { //null je v pripade, ze este neexistovala ta schema
+                                if (formerEntitySchema != null) { //null if there was no such entity schema
                                     JsonNode eventTypes = formerEntitySchema.get("eventTypes");
-                                    for (JsonNode n : eventTypes) {
-                                        if (n.get(methodName) != null) { //mame ten mapping, co chceme
-                                            formerMethodSchemaFile = n.get(methodName).textValue();
+                                    for (JsonNode node : eventTypes) {
+                                        if (node.get(methodName) != null) {
+                                            formerMethodSchemaFile = node.get(methodName).textValue();
+                                            break;
                                         }
                                     }
-                                    //skontrolovat, ci sa s touto schemickou zhoduje dana metoda
+                                    
                                     if (! formerMethodSchemaFile.equals("")) {
-                                        //formerMethodSchemaFile = SCHEMAS.cz.muni.fi.a.method2_1
-                                        //targetPackage = .cz.muni.fi.a
-                                        if (targetPackage.equals(formerMethodSchemaFile.substring(SCH_EVENTTYPES_BASE_PKG.length(), formerMethodSchemaFile.lastIndexOf('.')))) {
-                                            //nacitaj tu schemicku a skontroluj obsah
-                                            String pkg = "src" + File.separator + "main" + File.separator + "resources" + File.separator
-                                                    + formerMethodSchemaFile.replace('.', File.separatorChar) + ".json";
-                                            JsonNode root = mapper.readTree(FileSystems.getDefault().getPath(pkg).toFile());
-                                            
-                                            if (matches(root, paramNames, paramTypes)) {
-                                                //zhodovala sa, to znamena, ze existuje pre nu schema, a tu schemu ma uz namapovanu v entite,
-                                                // tj uz s tym netreba nic robit, len ju zapisat; potom chod na dalsiu metodu
-                                                entitySchema.writeStartObject();
-                                                entitySchema.writeStringField(methodName, SCH_EVENTTYPES_BASE_PKG + targetPackage + "." + methodSchemaName);
-                                                entitySchema.writeEndObject();
-                                                continue;
-                                            } else {
-                                                //nezhoduje sa, takze z tej namapovanej odstranit tuto entitu (pripadne ju aj zmazat)
-                                                unlinkEntityFromMethodSchema(pkg, root, SCH_ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, mapper, jsonFactory);
-                                            }
+                                        String pkg = "src" + File.separator + "main" + File.separator + "resources" + File.separator
+                                                + formerMethodSchemaFile.replace('.', File.separatorChar) + ".json";
+                                        JsonNode root = mapper.readTree(FileSystems.getDefault().getPath(pkg).toFile());
+                                        
+                                        if (targetPackage.equals(formerMethodSchemaFile.substring(EVENTTYPES_BASE_PKG.length(), formerMethodSchemaFile.lastIndexOf('.')))
+                                                && matches(root, paramNames, paramTypes)) {
+                                            //i.e. no changes, the method matches the same schema as before
+                                            entitySchema.writeStartObject();
+                                            entitySchema.writeStringField(methodName, EVENTTYPES_BASE_PKG + targetPackage + "." + methodSchemaName);
+                                            entitySchema.writeEndObject();
+                                            continue;  
                                         } else {
-                                            //zmaz z tej povodne namapovanej tuto entitu, lebo nesedi
-                                            String pkg = "src" + File.separator + "main" + File.separator + "resources" + File.separator
-                                                    + formerMethodSchemaFile.replace('.', File.separatorChar) + ".json";
-                                            JsonNode root = mapper.readTree(FileSystems.getDefault().getPath(pkg).toFile());
-                                            
-                                            unlinkEntityFromMethodSchema(pkg, root, SCH_ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, mapper, jsonFactory);
+                                            unlinkEntityFromMethodSchema(pkg, root, ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, mapper, jsonFactory);
                                         }
                                     }
                                 }
                                 
-                                //ak neexistovala schema pre entitu, alebo v nej nebola dana metoda, alebo nesedela s povodne priradenou schemickou:
-                                //v tom baliku prehladat vsetky schemicky pre metodu s tymto menom (tj tie, co zacinaju na jej meno)
+                                //if there was no schema for this entity, or it did not contain the method, or the method did not match the schema it was linked to:
+                                //go through all schemas for this methodName in targetPackage and try to find one that matches
                                 String matchingSchemaFile = "";
                                 JsonNode root = null;
                                 String pkg = "src" + File.separator + "main" + File.separator + "resources" + File.separator + 
-                                    SCH_EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar);
-                                //vytvorit neexistujuce adresare
+                                    EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar);
+                                //create non-existing directories
                                 Files.createDirectories(FileSystems.getDefault().getPath(pkg));
                                 
                                 try (DirectoryStream<Path> dir = Files.newDirectoryStream(FileSystems.getDefault().getPath(pkg))) {
                                     for (Path p : dir) {
                                         if (p.getFileName().toString().equals(methodName + ".json") || p.getFileName().toString().startsWith(methodName + "_")) {
-                                            //skontroluj, ci sa struktura metody (=parametre) zhoduje s touto schemickou
-                                            
-                                            //vynechat tu, co mal napisanu ako mapping v entite - tu sme uz kontrolovali
-                                            if (! formerMethodSchemaFile.equals("")) { //ak vobec v entite nieco k tomu bolo
+                                            //skip the one we checked before
+                                            if (! formerMethodSchemaFile.equals("")) {
                                                 if (p.toString().equals("src" + File.separator + "main" + File.separator + "resources" + File.separator 
                                                         + formerMethodSchemaFile.replace('.', File.separatorChar) + ".json")) {
                                                     continue;
@@ -268,7 +243,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                             
                                             root = mapper.readTree(p.toFile());
                                             if (matches(root, paramNames, paramTypes)) {
-                                                matchingSchemaFile = p.getFileName().toString(); //zhodovala sa, vyskocit z cyklu
+                                                matchingSchemaFile = p.getFileName().toString();
                                                 break;
                                             }
                                         }
@@ -278,64 +253,61 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     messager.printMessage(Diagnostic.Kind.ERROR, "Error reading file.");
                                 }
                                 
-                                if (! matchingSchemaFile.equals("")) { //ak sa zhodovala dana metoda s existujucou schemickou
-                                    //aktualizuj mapovanie v scheme pre entitu
-                                    //potom negenerovat schemicku (iba zapiseme odkaz na tuto do schemy pre entitu)
-                                    methodSchemaName = matchingSchemaFile.substring(0, matchingSchemaFile.length() - 5); //bez .json
-                                    //a pridaj tuto entitu do zoznamu v schemicke
-                                    //v root mam nacitany obsah schemicky, tak tam len zmenim usedbyentities
+                                if (! matchingSchemaFile.equals("")) {
+                                    //update methodSchemaName for this method in entity schema
+                                    methodSchemaName = matchingSchemaFile.substring(0, matchingSchemaFile.length() - 5); //without file extension
+                                    //and link this entity to the matching method schema
                                     boolean contains = false;
-                                    for (String entity : root.findValuesAsText("usedByEntities")) {
-                                        if (entity.equals(SCH_ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName)) {
+                                    for (String entity : root.findValuesAsText("usedBy")) {
+                                        if (entity.equals(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName)) {
                                             contains = true;
                                             break;
                                         }
                                     }
                                     if (! contains) {
-                                        ArrayNode usedByEntities = (ArrayNode) root.get("usedByEntities");
-                                        usedByEntities.add(SCH_ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName);
-                                        ((ObjectNode)root).put("usedByEntities", usedByEntities);
+                                        ArrayNode usedBy = (ArrayNode) root.get("usedBy");
+                                        usedBy.add(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName);
+                                        ((ObjectNode)root).put("usedBy", usedBy);
                                         
                                         String p = "src" + File.separator + "main" + File.separator + "resources" + File.separator
-                                                + SCH_EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
+                                                + EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
                                                 + File.separator + matchingSchemaFile;
                                         Path pp = FileSystems.getDefault().getPath(p);
-                                        //zapisat to naspat do toho suboru
+                                        //update the file
                                         try (JsonGenerator generator = jsonFactory.createGenerator(pp.toFile(), JsonEncoding.UTF8)) {
                                             generator.useDefaultPrettyPrinter();
                                             mapper.writeTree(generator, root);
                                         }
                                     }
-                                } else { //ak taka schemicka este nie je, vytvor pre nu novy subor
+                                } else { //create new
                                     try {
                                         String p = "src" + File.separator + "main" + File.separator + "resources" + File.separator
-                                                + SCH_EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
+                                                + EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
                                                 + File.separator + methodName + ".json";
                                         Path pp = FileSystems.getDefault().getPath(p);
                                         int suffix = 0;
-                                        //najdeme neobsadeny nazov suboru (ako prve skusame bez pripony, tj. p = ...methodName.json)
+                                        //find the first available file name for this method schema
                                         while (Files.exists(pp)) {
                                             suffix++;
                                             p = "src" + File.separator + "main" + File.separator + "resources" + File.separator
-                                                    + SCH_EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
+                                                    + EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
                                                     + File.separator + methodName + "_" + suffix + ".json";
                                             pp = FileSystems.getDefault().getPath(p);
                                         }
                                         
                                         if (suffix != 0) {
                                             methodSchemaName = methodName + "_" + suffix;
-                                        } //inak ostava methodSchemaName zhodne s methodName
+                                        } //else: methodSchemaName == methodName
 
                                         String methodPath = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar
-                                                + SCH_EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
+                                                + EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
                                                 + File.separator + methodSchemaName + ".json";
-                                    
-                                        //vygenerovat obsah schemicky:
-                                        Path methodFile = FileSystems.getDefault().getPath(methodPath);
-
-                                        //vytvorit neexistujuce adresare
-                                        Files.createDirectories(methodFile.getParent());
-                                        try (JsonGenerator methodSchema = jsonFactory.createGenerator(methodFile.toFile(), JsonEncoding.UTF8)) {
+                                        
+                                        Path methodSchemaFile = FileSystems.getDefault().getPath(methodPath);
+                                        
+                                        //create non-existing directories
+                                        Files.createDirectories(methodSchemaFile.getParent());
+                                        try (JsonGenerator methodSchema = jsonFactory.createGenerator(methodSchemaFile.toFile(), JsonEncoding.UTF8)) {
                                             methodSchema.useDefaultPrettyPrinter();
 
                                             methodSchema.writeStartObject();
@@ -345,8 +317,8 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                             methodSchema.writeString("object");
                                             methodSchema.writeEndArray();
                                             methodSchema.writeObjectFieldStart("properties");
-                                            //teraz vsetky parametre s typmi:
-                                            String required = ""; //aby sme nemuseli znovu prechadzat paramNames
+                                            //method parameters and their types:
+                                            String required = "";
                                             boolean comma = false;
                                             for (int i = 0; i < paramNames.size(); i++) {
                                                 methodSchema.writeObjectFieldStart(paramNames.get(i));
@@ -366,8 +338,8 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                             methodSchema.writeEndArray();
                                             methodSchema.writeBooleanField("additionalProperties", false);
 
-                                            methodSchema.writeArrayFieldStart("usedByEntities");
-                                            methodSchema.writeString(SCH_ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName);
+                                            methodSchema.writeArrayFieldStart("usedBy");
+                                            methodSchema.writeString(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName);
                                             methodSchema.writeEndArray();
 
                                             methodSchema.writeEndObject();
@@ -377,10 +349,9 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     }
                                 }
                                 
-                                //poznamenat si pouzitie tejto metody do schemy pre entitu; schvalne az teraz, pretoze medzitym sa
-                                //  mohla vygenerovat schemicka s inym nazvom, ako mala povodna metoda
+                                //link method to its schema
                                 entitySchema.writeStartObject();
-                                entitySchema.writeStringField(methodName, SCH_EVENTTYPES_BASE_PKG + targetPackage + "." + methodSchemaName);
+                                entitySchema.writeStringField(methodName, EVENTTYPES_BASE_PKG + targetPackage + "." + methodSchemaName);
                                 entitySchema.writeEndObject();
                             }
                         }
@@ -388,22 +359,19 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                         entitySchema.writeEndArray();
                         entitySchema.writeEndObject();
                         
-                        //este na zaver upratat:
-                        //zo vsetkych schemiciek povodne namapovanych na metody, ktore uz teraz neexistuju, zmazat aktualnu entitu
-                        if (formerEntitySchema != null) { //ak existovala povodne schema pre entitu
+                        //take care of deleted methods: remove the link to this entity from their schemas
+                        if (formerEntitySchema != null) {
                             JsonNode eventTypes = formerEntitySchema.get("eventTypes");
-                            for (JsonNode n : eventTypes) {
-                                Iterator<String> it = n.fieldNames();
+                            for (JsonNode node : eventTypes) {
+                                Iterator<String> it = node.fieldNames();
                                 String name = it.next();
-                                if (! methodNames.contains(name)) { //ak uz tato metoda nie je v skumanej triede
-                                    //chod na tento subor
-                                    String pathToFormerMethodSchema = n.get(name).textValue();
-                                    //a zmaz odtial entitu z usedByEntities
+                                if (! methodNames.contains(name)) {
+                                    String pathToFormerMethodSchema = node.get(name).textValue();
                                     String pkg = "src" + File.separator + "main" + File.separator + "resources" + File.separator
                                             + pathToFormerMethodSchema.replace('.', File.separatorChar) + ".json";
                                     JsonNode root = mapper.readTree(FileSystems.getDefault().getPath(pkg).toFile());
-
-                                    unlinkEntityFromMethodSchema(pkg, root, SCH_ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, mapper, jsonFactory);
+                                    
+                                    unlinkEntityFromMethodSchema(pkg, root, ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, mapper, jsonFactory);
                                 }
                             }
                         }
@@ -413,7 +381,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                 }
             }
             
-            //a uplne na zaver si zapisat cas posledneho buildu
+            //update lastBuildTime (used for tracking changes in class files)
             Properties properties = new Properties();
             properties.setProperty("lastBuildTime", String.valueOf(new Date().getTime()));
             try {
@@ -448,8 +416,8 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                 }
             }
             
-            String entitiesDir = "src" + File.separator + "main" + File.separator + "resources" + File.separator + SCH_ENTITIES_BASE_PKG;
-            final int entitiesDirPrefixLength = entitiesDir.length();
+            String entitiesDir = "src" + File.separator + "main" + File.separator + "resources" + File.separator + ENTITIES_BASE_PKG;
+            final int entitiesDirLength = entitiesDir.length();
             final List<String> processed = processedClasses;
             try {
                 Files.walkFileTree(FileSystems.getDefault().getPath(entitiesDir), new SimpleFileVisitor<Path>() {
@@ -458,12 +426,10 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                         String filename = path.getFileName().toString();
                         
                         if (filename.toLowerCase().endsWith(".json")) {
-                            String classPackage = ""; //".cz.muni.fi" pre "LOGGER.cz.muni.fi.L_Entity.java" alebo "" pre "LOGGER.L_Entity.java"
-                            {
-                                String dir = path.toString().substring(0, path.toString().length() - filename.length() - 1);
-                                if (dir.length() != entitiesDirPrefixLength) {
-                                    classPackage = "." + dir.substring(entitiesDirPrefixLength + 1).replace(File.separatorChar, '.');
-                                }
+                            String classPackage = ""; //".cz.muni.fi" for "LOGGER.cz.muni.fi.L_Entity.java", or "" for "LOGGER.L_Entity.java"
+                            String dir = path.toString().substring(0, path.toString().length() - filename.length() - 1);
+                            if (dir.length() != entitiesDirLength) {
+                                classPackage = "." + dir.substring(entitiesDirLength + 1).replace(File.separatorChar, '.');
                             }
                             
                             if (processed.contains(CLASSES_BASE_PKG + classPackage + "." + CLASS_PREFIX + filename.substring(0, filename.length() - 5))) {
@@ -475,7 +441,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             try {
                                 entitySchemaRoot = mapper.readTree(path.toFile());
                                 
-                                //meno triedy je L_menoSuboruSoSchemouPreEntitu (bez pripony)
                                 String className = CLASS_PREFIX + filename.substring(0, 1).toUpperCase() + filename.substring(1, filename.length() - 5);
                                 
                                 String classBeginning = "package " + CLASSES_BASE_PKG + classPackage + ";\n\n";
@@ -486,43 +451,41 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                 String classContent = "\npublic class " + className + " extends " + LOGGER + " {\n";
                                 
                                 ArrayNode eventTypes = (ArrayNode)(entitySchemaRoot.get("eventTypes"));
-                                //ak entita neodkazuje na ziadne metody, len ju zmaz, negeneruj z nej ziadnu triedu
-                                //(neviem sice, kedy by to mohlo nastat, ale spravat by sa to malo takto.)
+                                //delete entities with no methods
                                 if (eventTypes.size() == 0) {
                                     Files.delete(path);
                                     return FileVisitResult.CONTINUE;
                                 }
                                 
-                                //prejdi vsetky subory so schemickami a generuj metody
+                                //generate methods for all method schemas
                                 boolean namespaceImport = false;
                                 for (int i = 0; i < eventTypes.size(); i++) {
                                     JsonNode methodNode = eventTypes.get(i);
                                     Iterator<String> it = methodNode.fieldNames();
                                     String methodName = it.next();
-                                    String schemaPack = methodNode.get(methodName).textValue();
+                                    String schemaPackage = methodNode.get(methodName).textValue();
                                     
                                     String methodSchemaPath = "src" + File.separator + "main" + File.separator + "resources" + File.separator
-                                            + schemaPack.replace('.', File.separatorChar) + ".json";
+                                            + schemaPackage.replace('.', File.separatorChar) + ".json";
                                     Path methodSchema = FileSystems.getDefault().getPath(methodSchemaPath);
                                     JsonNode methodSchemaRoot = mapper.readTree(methodSchema.toFile());
                                     JsonNode parameters = methodSchemaRoot.get("properties");
                                     Iterator<String> paramsIterator = parameters.fieldNames();
                                     boolean putComma = false;
                                     
-                                    //pridat @Namespace ak dana schemicka nie je v rovnakom baliku ako trieda
-                                    String targetPack = schemaPack.substring(SCH_EVENTTYPES_BASE_PKG.length(), schemaPack.lastIndexOf('.'));
-                                    if (! classPackage.equals(targetPack)) {
+                                    //add @Namespace if classPackage != targetPackage
+                                    String targetPackage = schemaPackage.substring(EVENTTYPES_BASE_PKG.length(), schemaPackage.lastIndexOf('.'));
+                                    if (! classPackage.equals(targetPackage)) {
                                         if (! namespaceImport) {
                                             classBeginning += "import cz.muni.fi.annotation.Namespace;\n";
                                             namespaceImport = true;
                                         }
-                                        if (targetPack.length() > 0) {
-                                            targetPack = targetPack.substring(1);
+                                        if (targetPackage.length() > 0) {
+                                            targetPackage = targetPackage.substring(1);
                                         }
-                                        classContent += "\n    @Namespace(\"" + targetPack + "\")";
+                                        classContent += "\n    @Namespace(\"" + targetPackage + "\")";
                                     }
                                     
-                                    //a vypisat metodu
                                     classContent += "\n    public static void " + methodName + "(";
                                     String strings = "";
                                     String args = "";
@@ -530,8 +493,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                         if (putComma) {
                                             classContent += ", ";
                                             strings += ",";
-                                            //schvalne tu nie je 'args += ", ";' - robilo to problemy pri bezparametrickych metodach.
-                                            //take by sice nemali byt, ale uzivatelia su zakerni
                                         } else {
                                             putComma = true;
                                         }
@@ -557,20 +518,18 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                         strings += "\"" + paramName + "\"";
                                         args += ", " + paramName;
                                     }
-                                    //zavriet tu zatvorku za parametrami metody, dopisat telo metody
                                     classContent += ") {\n" + "        log(new String[]{" + strings + "}" + args + ");\n" + "    }\n";
                                 }
                                 
-                                //potom na zaver dokonci triedu a zapis ju do suboru
                                 classContent += "}\n";
                                 
-                                JavaFileObject file = filer.createSourceFile(CLASSES_BASE_PKG + classPackage + "." + className); //bacha! povodne tu bolo "/" miesto ".", a preto to neslo!
+                                JavaFileObject file = filer.createSourceFile(CLASSES_BASE_PKG + classPackage + "." + className);
                             
                                 file.openWriter()
                                         .append(classBeginning + classContent)
                                         .close();
 
-                                newClasses.add(CLASSES_BASE_PKG + classPackage + "." + className); //poznacit si, ktoru sme vygenerovali teraz
+                                newClasses.add(CLASSES_BASE_PKG + classPackage + "." + className);
                             } catch (IOException ex) {
                                 messager.printMessage(Diagnostic.Kind.ERROR, filename + ": unexpected format of schema");
                             }
@@ -589,8 +548,13 @@ public class JsonSchemaProcessor extends AbstractProcessor {
         return true;
     }
     
-    private boolean matches(JsonNode root, List<String> paramNames, List<String> paramTypes) {
-        JsonNode properties = root.get("properties");
+    /*
+     * Validates method parameters against JSON Schema.
+     * 
+     * @return true if all parameter names and types match those in the schema, false otherwise
+     */
+    private boolean matches(JsonNode schema, List<String> paramNames, List<String> paramTypes) {
+        JsonNode properties = schema.get("properties");
         Iterator<String> paramsIterator = properties.fieldNames();
         boolean ok = true;
         int i = 0;
@@ -615,31 +579,34 @@ public class JsonSchemaProcessor extends AbstractProcessor {
             i++;
         }
         
-        if (ok && (i == paramNames.size())) { //sice mohlo sediet prvych i, ale nemuseli to byt vsetky
+        if (ok && (i == paramNames.size())) {
             return true;
         } else {
             return false;
         }
     }
     
-    private void unlinkEntityFromMethodSchema(String pkg, JsonNode root, String entity, ObjectMapper mapper, JsonFactory jsonFactory) throws IOException {
-        ArrayNode usedByUpdated = (ArrayNode)(root.get("usedByEntities"));
-        for (int j = 0; j < usedByUpdated.size(); j++) {
-            JsonNode node = usedByUpdated.get(j);
-
+    /*
+     * Removes reference to entity from method schema.
+     */
+    private void unlinkEntityFromMethodSchema(String path, JsonNode schema, String entity, ObjectMapper mapper, JsonFactory jsonFactory) throws IOException {
+        ArrayNode usedBy = (ArrayNode)(schema.get("usedBy"));
+        for (int j = 0; j < usedBy.size(); j++) {
+            JsonNode node = usedBy.get(j);
             if (node.textValue().equals(entity)) {
-                usedByUpdated.remove(j);
+                usedBy.remove(j);
+                break;
             }
         }
 
-        if (usedByUpdated.size() == 0) {
-            Files.delete(FileSystems.getDefault().getPath(pkg));
+        if (usedBy.size() == 0) { //delete the schema if no entities reference it anymore
+            Files.delete(FileSystems.getDefault().getPath(path));
         } else {
-            ((ObjectNode)root).put("usedByEntities", usedByUpdated);
-            //zapisat to naspat do toho suboru
-            try (JsonGenerator generator = jsonFactory.createGenerator(FileSystems.getDefault().getPath(pkg).toFile(), JsonEncoding.UTF8)) {
+            ((ObjectNode)schema).put("usedBy", usedBy);
+            //update the file
+            try (JsonGenerator generator = jsonFactory.createGenerator(FileSystems.getDefault().getPath(path).toFile(), JsonEncoding.UTF8)) {
                 generator.useDefaultPrettyPrinter();
-                mapper.writeTree(generator, root);
+                mapper.writeTree(generator, schema);
             }
         }
     }
