@@ -1,0 +1,13 @@
+{
+  "$schema" : "http://json-schema.org/schema#",
+  "title" : "method2",
+  "type" : [ "object" ],
+  "properties" : {
+    "parameter" : {
+      "type" : "integer"
+    }
+  },
+  "required" : ["parameter" ],
+  "additionalProperties" : false,
+  "usedBy" : [ "ENTITIES.EntityB" ]
+}

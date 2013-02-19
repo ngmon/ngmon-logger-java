@@ -1,0 +1,11 @@
+{
+  "$schema" : "http://json-schema.org/schema#",
+  "title" : "EntityA",
+  "eventTypes" : [ {
+    "method1" : "SCHEMAS.method1"
+  }, {
+    "method2" : "SCHEMAS.method2"
+  }, {
+    "method3" : "SCHEMAS.x.y.method3"
+  } ]
+}

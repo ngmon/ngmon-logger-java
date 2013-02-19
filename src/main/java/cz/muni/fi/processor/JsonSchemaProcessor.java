@@ -46,6 +46,9 @@ import javax.tools.JavaFileObject;
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class JsonSchemaProcessor extends AbstractProcessor {
     
+    //TODO odstranit spätné referencie na entity zo schem
+    //TODO ratam natvrdo so standardnou mavenovskou strukturou (src/main/java apod.) ...to asi nie je uplne dobre?
+    
     private Filer filer;
     private Messager messager;
     
@@ -398,12 +401,11 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                      + "import java.util.HashMap;\n"
                                      + "import java.util.Map;\n\n"
                                      + "public class " + LOGGER + " {\n\n"
-                                     + "    public static Map<String, Object> log(String[] names, Object... values) {\n"
+                                     + "    public static void log(String[] names, Object... values) {\n"
                                      + "        Map<String, Object> map = new HashMap<>();\n\n"
                                      + "        for (int i = 0; i < names.length; i++) {\n"
                                      + "            map.put(names[i], values[i]);\n"
-                                     + "        }\n\n"
-                                     + "        return map;\n"
+                                     + "        }\n"
                                      + "    }\n"
                                      + "}\n";
                 try {
