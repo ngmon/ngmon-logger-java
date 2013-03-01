@@ -5,3 +5,5 @@
 *.war
 *.ear
 /examples/SampleProject/target/
+/JsonSchemaProcessor.iml
+/.idea/
