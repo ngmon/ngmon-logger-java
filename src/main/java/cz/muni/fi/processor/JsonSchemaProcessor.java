@@ -15,8 +15,8 @@ import cz.muni.fi.annotation.SourceNamespace;
 import cz.muni.fi.ast.MethodInvocationInfo;
 import cz.muni.fi.ast.MethodInvocationScanner;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -60,6 +60,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private Messager messager;
     
     private static final String EVENTS_BASE_PKG = "EVENTS";
+    private String configPath = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + "config.properties";
     
     private long lastBuildTime = 0;
     private boolean firstRound = true;
@@ -79,7 +80,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
         
         Properties properties = new Properties();
         try {
-            properties.load(new FileInputStream("src/main/resources/config.properties"));
+            properties.load(new FileReader(configPath));
             lastBuildTime = Long.parseLong(properties.getProperty("lastBuildTime"));
         } catch (IOException ex) {
         }
@@ -354,9 +355,10 @@ public class JsonSchemaProcessor extends AbstractProcessor {
             Properties properties = new Properties();
             properties.setProperty("lastBuildTime", String.valueOf(new Date().getTime()));
             try {
-                properties.store(new FileOutputStream("src/main/resources/config.properties"), null);
+                Files.createDirectories(FileSystems.getDefault().getPath(configPath).getParent());
+                properties.store(new FileWriter(configPath), null);
             } catch (IOException ex) {
-                messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file src/main/resources/config.properties");
+                messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + configPath);
             }
         }
         
