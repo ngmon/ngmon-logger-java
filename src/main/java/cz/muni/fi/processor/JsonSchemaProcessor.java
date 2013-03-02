@@ -445,12 +445,14 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                 
                                 String className = CLASS_PREFIX + filename.substring(0, 1).toUpperCase() + filename.substring(1, filename.length() - 5);
                                 
-                                String classBeginning = "package " + CLASSES_BASE_PKG + classPackage + ";\n\n";
+                                StringBuilder classBeginning = new StringBuilder();
+                                classBeginning.append("package ").append(CLASSES_BASE_PKG).append(classPackage).append(";\n\n");
                                 if (! classPackage.equals("")) {
-                                    classBeginning += "import " + CLASSES_BASE_PKG + "." + LOGGER + ";\n";
+                                    classBeginning.append("import ").append(CLASSES_BASE_PKG).append(".").append(LOGGER).append(";\n");
                                 }
                                 
-                                String classContent = "\npublic class " + className + " extends " + LOGGER + " {\n";
+                                StringBuilder classContent = new StringBuilder();
+                                classContent.append("\npublic class ").append(className).append(" extends ").append(LOGGER).append(" {\n");
                                 
                                 ArrayNode eventTypes = (ArrayNode)(entitySchemaRoot.get("eventTypes"));
                                 //delete entities with no methods
@@ -479,21 +481,21 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     String targetPackage = schemaPackage.substring(EVENTTYPES_BASE_PKG.length(), schemaPackage.lastIndexOf('.'));
                                     if (! classPackage.equals(targetPackage)) {
                                         if (! namespaceImport) {
-                                            classBeginning += "import cz.muni.fi.annotation.Namespace;\n";
+                                            classBeginning.append("import cz.muni.fi.annotation.Namespace;\n");
                                             namespaceImport = true;
                                         }
                                         if (targetPackage.length() > 0) {
                                             targetPackage = targetPackage.substring(1);
                                         }
-                                        classContent += "\n    @Namespace(\"" + targetPackage + "\")";
+                                        classContent.append("\n    @Namespace(\"").append(targetPackage).append("\")");
                                     }
                                     
-                                    classContent += "\n    public static void " + methodName + "(";
+                                    classContent.append("\n    public static void ").append(methodName).append("(");
                                     String strings = "";
                                     String args = "";
                                     while (paramsIterator.hasNext()) {
                                         if (putComma) {
-                                            classContent += ", ";
+                                            classContent.append(", ");
                                             strings += ",";
                                         } else {
                                             putComma = true;
@@ -502,33 +504,33 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                         JsonNode param = parameters.get(paramName);
                                         switch (param.get("type").textValue()) {
                                             case "string":
-                                                classContent += "String ";
+                                                classContent.append("String ");
                                                 break;
                                             case "integer":
-                                                classContent += "int ";
+                                                classContent.append("int ");
                                                 break;
                                             case "number":
-                                                classContent += "double ";
+                                                classContent.append("double ");
                                                 break;
                                             case "boolean":
-                                                classContent += "boolean ";
+                                                classContent.append("boolean ");
                                                 break;
                                             default:
-                                                classContent += "Object ";
+                                                classContent.append("Object ");
                                         }
-                                        classContent += paramName;
+                                        classContent.append(paramName);
                                         strings += "\"" + paramName + "\"";
                                         args += ", " + paramName;
                                     }
-                                    classContent += ") {\n" + "        log(new String[]{" + strings + "}" + args + ");\n" + "    }\n";
+                                    classContent.append(") {\n        log(new String[]{").append(strings).append("}").append(args).append(");\n    }\n");
                                 }
                                 
-                                classContent += "}\n";
+                                classContent.append("}\n");
                                 
                                 JavaFileObject file = filer.createSourceFile(CLASSES_BASE_PKG + classPackage + "." + className);
                             
                                 file.openWriter()
-                                        .append(classBeginning + classContent)
+                                        .append(classBeginning).append(classContent)
                                         .close();
 
                                 newClasses.add(CLASSES_BASE_PKG + classPackage + "." + className);
