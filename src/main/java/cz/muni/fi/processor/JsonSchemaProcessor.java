@@ -151,6 +151,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             //to by malo znamenat, ze sa dana metoda volala na vysledku inej metody, nie priamo ako staticka.
                             //kedze nie som kompilator, nemozem to kontrolovat az do takych detailov, aby som spojila entitu s 
                             //  metodou v NS cez volania dalsich metod; kontrolujem to, iba ak je to hned za sebou
+                            messager.printMessage(Diagnostic.Kind.NOTE, "skipping) '" + methodInfo.getArgObject() + "." + methodInfo.getArgMethodName() + "'");
                             continue;
                         }
 
@@ -160,9 +161,10 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                         } else {
                             argObjSimpleName = methodInfo.getArgObject().substring(methodInfo.getArgObject().lastIndexOf('.') + 1);
                         }
-                        if (! namespaces.contains(argObjSimpleName)) {
+                        if (! containsName(namespaces, argObjSimpleName)) {
                             //ak ta druha metoda nie je z nejakeho NS (samozrejme nie je iste, ze ak namespaces.contains(xx), tak 
                             //  to je NS - moze to mat ine FQN. ale ak !contains, urcite to NS nie je, a aspon to trochu osekame.)
+                            messager.printMessage(Diagnostic.Kind.NOTE, "skipping!NS '" + methodInfo.getArgObject() + "." + methodInfo.getArgMethodName() + "' (" + argObjSimpleName + ")");
                             continue;
                         }
 
@@ -197,6 +199,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                             + "." + methodInfo.getArgObject();
                                 }
                             } else {
+                                messager.printMessage(Diagnostic.Kind.NOTE, "o-ou");
                                 //TODO najst tie fqn, ak ich este furt nemam (tj. neboli jednoducho zistitelne... -> papier)
                             }
                         }
@@ -362,6 +365,16 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     
     private String getFQN(Element classElement) {
         return classElement.getEnclosingElement().toString() + "." + classElement.getSimpleName().toString();
+    }
+
+    private boolean containsName(List<String> namespaces, String argObjSimpleName) {
+        for (String ns : namespaces) {
+            if ((ns.equals(argObjSimpleName)) || (ns.endsWith("." + argObjSimpleName))) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     private void generateNamespaces(final List<String> existingNSs) {
