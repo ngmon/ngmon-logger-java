@@ -5,15 +5,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ImportTree;
-import com.sun.source.tree.LineMap;
-import com.sun.source.tree.Tree;
-import com.sun.source.util.Trees;
 import cz.muni.fi.annotation.Namespace;
-import cz.muni.fi.annotation.SourceNamespace;
-import cz.muni.fi.ast.MethodInvocationInfo;
-import cz.muni.fi.ast.MethodInvocationScanner;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -44,9 +36,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -66,17 +56,11 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private boolean firstRound = true;
     private List<Element> schemasToGenerate = new ArrayList<>();
     private List<String> newClasses = new ArrayList<>();
-
-    private Trees trees;
-    private Elements elements;
     
     @Override
     public void init(ProcessingEnvironment env) {
         filer = env.getFiler();
         messager = env.getMessager();
-        
-        trees = Trees.instance(env);
-        elements = env.getElementUtils();
         
         Properties properties = new Properties();
         try {
@@ -127,117 +111,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
 
                         if (add) {
                             schemasToGenerate.add(element);
-                        }
-                    }
-                }
-                
-                for (Element element : env.getRootElements()) { //spracuva vsetky, nie iba @Namespace
-                    //process only classes changed since the last build..?
-                    //TODO problem: ak sa zmenilo nieco v @SourceNamespace enumoch, treba prekontrolovat vsetko, co to pouziva :/
-                    CompilationUnitTree compUnit = trees.getPath(element).getCompilationUnit();
-                    List<MethodInvocationInfo> methodsInfo = new ArrayList<>();
-                    for (Element e : element.getEnclosedElements()) {
-                        Tree methodAST = trees.getTree(e);
-                        MethodInvocationScanner scanner = new MethodInvocationScanner();
-                        scanner.scan(methodAST, e);
-                        methodsInfo.addAll(scanner.getMethodsInvocationInfo());
-                    }
-
-                    @SuppressWarnings("unchecked")
-                    List<ImportTree> classImports = (List<ImportTree>) compUnit.getImports();
-                    String classFQN = getFQN(element);
-
-                    for (MethodInvocationInfo methodInfo : methodsInfo) {
-                        if (methodInfo.getObject().endsWith(")") || methodInfo.getArgObject().endsWith(")")) {
-                            //to by malo znamenat, ze sa dana metoda volala na vysledku inej metody, nie priamo ako staticka.
-                            //kedze nie som kompilator, nemozem to kontrolovat az do takych detailov, aby som spojila entitu s 
-                            //  metodou v NS cez volania dalsich metod; kontrolujem to, iba ak je to hned za sebou
-                            messager.printMessage(Diagnostic.Kind.NOTE, "skipping) '" + methodInfo.getArgObject() + "." + methodInfo.getArgMethodName() + "'");
-                            continue;
-                        }
-
-                        String argObjSimpleName;
-                        if (methodInfo.getArgObject().lastIndexOf('.') == -1) {
-                            argObjSimpleName = methodInfo.getArgObject();
-                        } else {
-                            argObjSimpleName = methodInfo.getArgObject().substring(methodInfo.getArgObject().lastIndexOf('.') + 1);
-                        }
-                        if (! containsName(namespaces, argObjSimpleName)) {
-                            //ak ta druha metoda nie je z nejakeho NS (samozrejme nie je iste, ze ak namespaces.contains(xx), tak 
-                            //  to je NS - moze to mat ine FQN. ale ak !contains, urcite to NS nie je, a aspon to trochu osekame.)
-                            messager.printMessage(Diagnostic.Kind.NOTE, "skipping!NS '" + methodInfo.getArgObject() + "." + methodInfo.getArgMethodName() + "' (" + argObjSimpleName + ")");
-                            continue;
-                        }
-
-                        //ziskat fqn methodInfo.object a methodInfo.argObject
-                        String fqnObject = "";
-                        String fqnArgObject = "";
-                        List<String> asteriskImports = new ArrayList<>();
-                        for (ImportTree imp : classImports) {
-                            String importt = imp.getQualifiedIdentifier().toString();
-
-                            if (importt.endsWith(methodInfo.getObject())) {
-                                fqnObject = importt;
-                            }
-
-                            if (importt.endsWith(methodInfo.getArgObject())) {
-                                fqnArgObject = importt;
-                            }
-
-                            if (importt.endsWith("*")) {
-                                asteriskImports.add(importt);
-                            }
-                        }
-
-                        if (fqnObject.equals("") || fqnArgObject.equals("")) {
-                            if (asteriskImports.isEmpty()) {
-                                if (fqnObject.equals("")) {
-                                    fqnObject = classFQN.substring(0, classFQN.lastIndexOf('.'))
-                                            + "." + methodInfo.getObject();
-                                }
-                                if (fqnArgObject.equals("")) {
-                                    fqnArgObject = classFQN.substring(0, classFQN.lastIndexOf('.'))
-                                            + "." + methodInfo.getArgObject();
-                                }
-                            } else {
-                                messager.printMessage(Diagnostic.Kind.NOTE, "o-ou");
-                                //TODO najst tie fqn, ak ich este furt nemam (tj. neboli jednoducho zistitelne... -> papier)
-                            }
-                        }
-                        
-                        //na tomto mieste uz mame urcite fqn oboch
-                        //prejst enum z triedy fqnObject, ktory sa vztahuje na dany fqnArgObject; ci obsahuje tu metodu
-                        TypeElement entityClass = elements.getTypeElement(fqnObject);
-                        boolean supported = true; //ak tam neni prislusna anotacia, neobmedzujem ziadne metody... TODO moze byt?
-                        for (Element elem : entityClass.getEnclosedElements()) {
-                            if (elem.getKind() == ElementKind.ENUM) {
-                                if (elem.getAnnotation(SourceNamespace.class) != null) {
-                                    String sourceNS = elem.getAnnotation(SourceNamespace.class).value();
-                                    if (sourceNS.equals(fqnArgObject)) {
-                                        boolean found = false;
-                                        for (Element el : elem.getEnclosedElements()) {
-                                            if (el.toString().equals(methodInfo.getArgMethodName())) {
-                                                found = true;
-                                                break;
-                                            }
-                                        }
-                                        if (!found) {
-                                            //jediny pripad, ked sa moze zmenit supported na false je, ked sme v enume pre dany NS
-                                            //  a nie je v nom povolena nasa volana metoda
-                                            supported = false;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!supported) {
-                            compUnit = trees.getPath(methodInfo.getMethodElement()).getCompilationUnit();
-                            long start = trees.getSourcePositions().getStartPosition(compUnit, methodInfo.getMethodTree());
-                            LineMap lineMap = compUnit.getLineMap();
-                            messager.printMessage(Diagnostic.Kind.ERROR, "Method '" + methodInfo.getArgMethodName() + "' not supported by '"
-                                    + methodInfo.getObject() + "' (line " + lineMap.getLineNumber(start) + ")", methodInfo.getMethodElement());
-                            //TODO hlaska ok?
                         }
                     }
                 }
@@ -362,23 +235,13 @@ public class JsonSchemaProcessor extends AbstractProcessor {
             }
         }
         
-        return true; //uz moze vratit true, lebo ziadny dalsi processor nie je
+        return true;
     }
     
     private String getFQN(Element classElement) {
         return classElement.getEnclosingElement().toString() + "." + classElement.getSimpleName().toString();
     }
-
-    private boolean containsName(List<String> namespaces, String argObjSimpleName) {
-        for (String ns : namespaces) {
-            if ((ns.equals(argObjSimpleName)) || (ns.endsWith("." + argObjSimpleName))) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-
+    
     private void generateNamespaces(final List<String> existingNSs) {
         final String schemasDir = "src" + File.separator + "main" + File.separator + "resources" + File.separator + EVENTS_BASE_PKG;
         try {
@@ -407,11 +270,11 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             }
                             
                             classBeginning.append("import cz.muni.fi.annotation.Namespace;\n");
-                            classBeginning.append("import cz.muni.fi.json.EventTypeDetails;\n");
-                            classBeginning.append("import cz.muni.fi.json.JSONer;\n");
+                            classBeginning.append("import cz.muni.fi.logger.Logger;\n");
                             
                             StringBuilder classContent = new StringBuilder();
-                            classContent.append("\n@Namespace\npublic class ").append(className).append(" {\n");
+                            classContent.append("\n@Namespace\npublic class ").append(className).append(" extends Logger<")
+                                    .append(className).append("> {\n");
                             
                             JsonNode definitions = schemaRoot.get("definitions");
                             //delete schemas with no methods
@@ -424,7 +287,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             Iterator<String> methodsIterator = definitions.fieldNames();
                             while (methodsIterator.hasNext()) {
                                 String methodName = methodsIterator.next();
-                                classContent.append("\n    public static EventTypeDetails ").append(methodName).append("(");
+                                classContent.append("\n    public void ").append(methodName).append("(");
                                 JsonNode method = definitions.get(methodName);
                                 JsonNode parameters = method.get("properties");
                                 Iterator<String> paramsIterator = parameters.fieldNames();
@@ -458,7 +321,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     classContent.append(paramName);
                                 }
                                 //zavriet tu zatvorku za parametrami metody, dopisat telo metody
-                                classContent.append(") {\n        return JSONer.getEventTypeDetails(\"").append(methodName)
+                                classContent.append(") {\n        log(\"").append(methodName)
                                         .append("\", new String[]{");
                                 putComma = false;
                                 for (int k = 0; k < paramNames.size(); k++) {

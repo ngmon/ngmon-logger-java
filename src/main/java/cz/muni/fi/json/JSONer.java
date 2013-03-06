@@ -7,10 +7,9 @@ import java.io.StringWriter;
 
 public class JSONer {
     
-    public static EventTypeDetails getEventTypeDetails(String eventType, String[] names, Object... values) {
+    public static String getEventTypeJson(String[] names, Object... values) {
         JsonFactory jsonFactory = new JsonFactory();
         StringWriter writer = new StringWriter();
-        EventTypeDetails details = null;
         try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
             json.useDefaultPrettyPrinter();
             
@@ -32,14 +31,9 @@ public class JSONer {
                 }
             }
             json.writeEndObject();
-            
-            details = new EventTypeDetails();
-            details.setEventType(eventType);
-            details.setJson(writer.toString());
-            writer.close();
         } catch (IOException e) {
         }
         
-        return details;
+        return writer.toString();
     }
 }
