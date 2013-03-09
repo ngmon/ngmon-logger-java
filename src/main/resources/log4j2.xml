@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appenders>
+        <Console name="STDOUT" target="SYSTEM_OUT"> <!-- len na testovanie; TODO odstranit -->
+            <PatternLayout pattern="%d %-5p [%t] %c %C{2} (%F:%L) - %m%n"/> <!-- (generating C,F,L is extremely slow) -->
+        </Console>
+        
+        <Syslog name="bsd" host="localhost" port="5140" protocol="UDP" facility="LOCAL0" /> <!-- TODO nastavit -->
+        <!--Syslog name="RFC5424" format="RFC5424" host="localhost" port="8140" protocol="TCP" appName="MyApp" includeMDC="true"
+                facility="LOCAL0" enterpriseNumber="18060" newLine="true" messageId="Audit" id="App"/-->
+    </appenders>
+    <loggers>
+        <!--logger name="org.apache.log4j.xml" level="debug" /-->
+        <root level="debug">
+            <appender-ref ref="STDOUT"/>
+            <!--appender-ref ref="bsd"/-->
+        </root>
+    </loggers>
+</configuration>

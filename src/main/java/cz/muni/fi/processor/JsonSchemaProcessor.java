@@ -275,6 +275,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             StringBuilder classContent = new StringBuilder();
                             classContent.append("\n@Namespace\npublic class ").append(className).append(" extends Logger<")
                                     .append(className).append("> {\n");
+                            classContent.append("\n    private static final String FQN = ").append(className).append(".class.getCanonicalName();\n");
                             
                             JsonNode definitions = schemaRoot.get("definitions");
                             //delete schemas with no methods
@@ -321,8 +322,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     classContent.append(paramName);
                                 }
                                 //zavriet tu zatvorku za parametrami metody, dopisat telo metody
-                                classContent.append(") {\n        log(\"").append(methodName)
-                                        .append("\", new String[]{");
+                                classContent.append(") {\n        log(FQN, \"").append(methodName).append("\", new String[]{");
                                 putComma = false;
                                 for (int k = 0; k < paramNames.size(); k++) {
                                     if (putComma) {

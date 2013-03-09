@@ -4,16 +4,26 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.List;
 
 public class JSONer {
     
-    public static String getEventTypeJson(String[] names, Object... values) {
+    public static String getEventJson(String fqnNS, String eventType, List<String> entities, String[] names, Object... values) {
         JsonFactory jsonFactory = new JsonFactory();
         StringWriter writer = new StringWriter();
         try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
-            json.useDefaultPrettyPrinter();
-            
+            json.useDefaultPrettyPrinter(); //TODO potom odstranit, aby sa posielal len maly jednoriadkovy JSON
             json.writeStartObject();
+            
+            json.writeArrayFieldStart("entities");
+            for (String e : entities) {
+                json.writeString(e);
+            }
+            json.writeEndArray();
+            
+            json.writeStringField("eventType", eventType); //TODO zmazat? asi zbytocne
+            
+            json.writeObjectFieldStart(fqnNS + ".json#/definitions/" + eventType);
             for (int i = 0; i < names.length; i++) {
                 json.writeFieldName(names[i]);
                 if (values[i] instanceof Number) {
@@ -30,6 +40,8 @@ public class JSONer {
                     }
                 }
             }
+            json.writeEndObject();
+            
             json.writeEndObject();
         } catch (IOException e) {
         }
