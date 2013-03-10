@@ -26,6 +26,12 @@
                   
                   <!-- (by default, annotation processors put generated sources to the project output directory) -->
                   <generatedSourcesDirectory>src/main/java</generatedSourcesDirectory>
+                  
+                  <!-- uncommenting this will activate EntitiesProcessor and print "statistics" about logging statements used in 
+                       this project (which eventTypes were tagged with which entities) to src/main/resources/entities-eventtypes.txt -->
+                  <!--annotationProcessors>
+                      <annotationProcessor>cz.muni.fi.processor.EntitiesProcessor</annotationProcessor>
+                  </annotationProcessors-->
               </configuration>
           </plugin>
       </plugins>

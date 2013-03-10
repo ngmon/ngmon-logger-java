@@ -2,8 +2,6 @@ package cz.muni.fi.processor;
 
 import com.sun.source.tree.Tree;
 import com.sun.source.util.Trees;
-import cz.muni.fi.processor.MethodInvocationScanner;
-import cz.muni.fi.processor.MethodInvocationScanner;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -18,8 +16,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.Filer;
-import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -27,28 +23,24 @@ import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
-import javax.tools.Diagnostic;
 
 @SupportedAnnotationTypes("*")
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class EntitiesProcessor extends AbstractProcessor {
     
-    private Messager messager;
     private Trees trees;
     private boolean firstRound = true;
     
     @Override
     public void init(ProcessingEnvironment env) {
-        messager = env.getMessager();
         trees = Trees.instance(env);
     }
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
-        if (firstRound) { //TODO aby to slo len raz, lebo je to narocne
+        if (firstRound) {
             Map<String, Set<String>> entitiesMap = new HashMap<>();
             for (Element element : env.getRootElements()) {
-                //najdi pre tuto triedu entitky a ich eventy
                 Tree methodAST = trees.getTree(element);
                 MethodInvocationScanner scanner = new MethodInvocationScanner();
                 scanner.scan(methodAST, element);
