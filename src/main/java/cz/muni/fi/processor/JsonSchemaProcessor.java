@@ -6,11 +6,10 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import cz.muni.fi.annotation.Namespace;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystems;
@@ -46,9 +45,6 @@ import javax.tools.JavaFileObject;
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class JsonSchemaProcessor extends AbstractProcessor {
     
-    //TODO odstranit spätné referencie na entity zo schem
-    //TODO ratam natvrdo so standardnou mavenovskou strukturou (src/main/java apod.) ...to asi nie je uplne dobre?
-    
     private Filer filer;
     private Messager messager;
     
@@ -57,6 +53,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private static final String CLASSES_BASE_PKG = "LOGGER";
     private static final String LOGGER = "Logger";
     private static final String CLASS_PREFIX = "L_";
+    private final String configPath = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + "config.properties";
     
     private long lastBuildTime = 0;
     private boolean firstRound = true;
@@ -70,10 +67,9 @@ public class JsonSchemaProcessor extends AbstractProcessor {
         
         Properties properties = new Properties();
         try {
-            properties.load(new FileInputStream("src/main/resources/config.properties"));
+            properties.load(new FileReader(configPath));
             lastBuildTime = Long.parseLong(properties.getProperty("lastBuildTime"));
-    	} catch (IOException ex) {
-            messager.printMessage(Diagnostic.Kind.ERROR, "Error reading file src/main/resources/config.properties");
+        } catch (IOException ex) {
         }
     }
 
@@ -107,6 +103,13 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                 }
             }
         } else { //last round - generate schemas for all classes (except for those that have just been created)
+            Properties properties = new Properties();
+            try {
+                properties.load(new FileReader(configPath));
+            } catch (IOException ex) {
+                //TODO
+            }
+            
             for (Element element : schemasToGenerate) {
                 String pack = element.getEnclosingElement().toString();
                 String elementName = element.getSimpleName().toString();
@@ -136,7 +139,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                     
                     JsonFactory jsonFactory = new JsonFactory();
                     try (JsonGenerator entitySchema = jsonFactory.createGenerator(file.toFile(), JsonEncoding.UTF8)) {
-                        entitySchema.useDefaultPrettyPrinter(); //TODO napisat vlastny, krajsi PrettyPrinter? ten rucne vypisovany JSON vyzeral lepsie ako toto
+                        entitySchema.useDefaultPrettyPrinter();
                         
                         entitySchema.writeStartObject();
                         entitySchema.writeStringField("$schema", "http://json-schema.org/schema#");
@@ -207,9 +210,9 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     }
                                     
                                     if (! formerMethodSchemaFile.equals("")) {
-                                        String pkg = "src" + File.separator + "main" + File.separator + "resources" + File.separator
+                                        String p = "src" + File.separator + "main" + File.separator + "resources" + File.separator
                                                 + formerMethodSchemaFile.replace('.', File.separatorChar) + ".json";
-                                        JsonNode root = mapper.readTree(FileSystems.getDefault().getPath(pkg).toFile());
+                                        JsonNode root = mapper.readTree(FileSystems.getDefault().getPath(p).toFile());
                                         
                                         if (targetPackage.equals(formerMethodSchemaFile.substring(EVENTTYPES_BASE_PKG.length(), formerMethodSchemaFile.lastIndexOf('.')))
                                                 && matches(root, paramNames, paramTypes)) {
@@ -219,7 +222,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                             entitySchema.writeEndObject();
                                             continue;  
                                         } else {
-                                            unlinkEntityFromMethodSchema(pkg, root, ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, mapper, jsonFactory);
+                                            unlinkEntityFromMethodSchema(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, formerMethodSchemaFile, p, properties);
                                         }
                                     }
                                 }
@@ -227,7 +230,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                 //if there was no schema for this entity, or it did not contain the method, or the method did not match the schema it was linked to:
                                 //go through all schemas for this methodName in targetPackage and try to find one that matches
                                 String matchingSchemaFile = "";
-                                JsonNode root = null;
+                                JsonNode root;
                                 String pkg = "src" + File.separator + "main" + File.separator + "resources" + File.separator + 
                                     EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar);
                                 //create non-existing directories
@@ -252,7 +255,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                         }
                                     }
                                 } catch (IOException ioe) {
-                                    //TODO hlaska
                                     messager.printMessage(Diagnostic.Kind.ERROR, "Error reading file.");
                                 }
                                 
@@ -260,28 +262,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     //update methodSchemaName for this method in entity schema
                                     methodSchemaName = matchingSchemaFile.substring(0, matchingSchemaFile.length() - 5); //without file extension
                                     //and link this entity to the matching method schema
-                                    boolean contains = false;
-                                    for (String entity : root.findValuesAsText("usedBy")) {
-                                        if (entity.equals(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName)) {
-                                            contains = true;
-                                            break;
-                                        }
-                                    }
-                                    if (! contains) {
-                                        ArrayNode usedBy = (ArrayNode) root.get("usedBy");
-                                        usedBy.add(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName);
-                                        ((ObjectNode)root).put("usedBy", usedBy);
-                                        
-                                        String p = "src" + File.separator + "main" + File.separator + "resources" + File.separator
-                                                + EVENTTYPES_BASE_PKG + targetPackage.replace('.', File.separatorChar)
-                                                + File.separator + matchingSchemaFile;
-                                        Path pp = FileSystems.getDefault().getPath(p);
-                                        //update the file
-                                        try (JsonGenerator generator = jsonFactory.createGenerator(pp.toFile(), JsonEncoding.UTF8)) {
-                                            generator.useDefaultPrettyPrinter();
-                                            mapper.writeTree(generator, root);
-                                        }
-                                    }
+                                    linkEntityToMethodSchema(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, EVENTTYPES_BASE_PKG + targetPackage + "." + methodSchemaName, properties);
                                 } else { //create new
                                     try {
                                         String p = "src" + File.separator + "main" + File.separator + "resources" + File.separator
@@ -340,13 +321,11 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                             methodSchema.writeRaw(required);
                                             methodSchema.writeEndArray();
                                             methodSchema.writeBooleanField("additionalProperties", false);
-
-                                            methodSchema.writeArrayFieldStart("usedBy");
-                                            methodSchema.writeString(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName);
-                                            methodSchema.writeEndArray();
-
+                                            
                                             methodSchema.writeEndObject();
                                         }
+                                        //link this entity to the method schema
+                                        linkEntityToMethodSchema(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, EVENTTYPES_BASE_PKG + targetPackage + "." + methodSchemaName, properties);
                                     } catch (IOException ex) {
                                         messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + methodSchemaName + ".json");
                                     }
@@ -370,11 +349,10 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                 String name = it.next();
                                 if (! methodNames.contains(name)) {
                                     String pathToFormerMethodSchema = node.get(name).textValue();
-                                    String pkg = "src" + File.separator + "main" + File.separator + "resources" + File.separator
+                                    String p = "src" + File.separator + "main" + File.separator + "resources" + File.separator
                                             + pathToFormerMethodSchema.replace('.', File.separatorChar) + ".json";
-                                    JsonNode root = mapper.readTree(FileSystems.getDefault().getPath(pkg).toFile());
                                     
-                                    unlinkEntityFromMethodSchema(pkg, root, ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, mapper, jsonFactory);
+                                    unlinkEntityFromMethodSchema(ENTITIES_BASE_PKG + classPackage + "." + entitySchemaName, pathToFormerMethodSchema, p, properties);
                                 }
                             }
                         }
@@ -384,13 +362,13 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                 }
             }
             
-            //update lastBuildTime (used for tracking changes in class files)
-            Properties properties = new Properties();
+            //update lastBuildTime (used for tracking changes in class files) and refs from method schemas to entities
             properties.setProperty("lastBuildTime", String.valueOf(new Date().getTime()));
             try {
-                properties.store(new FileOutputStream("src/main/resources/config.properties"), null);
+                Files.createDirectories(FileSystems.getDefault().getPath(configPath).getParent());
+                properties.store(new FileWriter(configPath), "Auto-generated, do not edit.\n");
             } catch (IOException ex) {
-                messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file src/main/resources/config.properties");
+                messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + configPath);
             }
         }
         
@@ -591,27 +569,49 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     }
     
     /*
+     * Links method schema to entity.
+     */
+    private void linkEntityToMethodSchema(String entity, String methodSchema, Properties properties) {
+        String val = properties.getProperty(methodSchema);
+        if (val != null) {
+            String[] entities = val.split(",");
+            boolean contains = false;
+            for (String e : entities) {
+                if (e.equals(entity)) {
+                    contains = true;
+                }
+            }
+            if (!contains) {
+                properties.setProperty(methodSchema, val + "," + entity);
+            }
+        } else {
+            properties.setProperty(methodSchema, entity);
+        }
+    }
+    
+    /*
      * Removes reference to entity from method schema.
      */
-    private void unlinkEntityFromMethodSchema(String path, JsonNode schema, String entity, ObjectMapper mapper, JsonFactory jsonFactory) throws IOException {
-        ArrayNode usedBy = (ArrayNode)(schema.get("usedBy"));
-        for (int j = 0; j < usedBy.size(); j++) {
-            JsonNode node = usedBy.get(j);
-            if (node.textValue().equals(entity)) {
-                usedBy.remove(j);
-                break;
+    private void unlinkEntityFromMethodSchema(String entity, String methodSchema, String path, Properties properties) throws IOException {
+        messager.printMessage(Diagnostic.Kind.NOTE, "entity: " + entity + ", methodSchema: " + methodSchema + ", deletePath: " + path);
+        String[] entities;
+        if (properties.getProperty(methodSchema) != null) {
+            entities = properties.getProperty(methodSchema).split(",");
+        } else {
+            return;
+        }
+        StringBuilder result = new StringBuilder();
+        for (String e : entities) {
+            if (! e.equals(entity)) {
+                result.append(e).append(',');
             }
         }
-
-        if (usedBy.size() == 0) { //delete the schema if no entities reference it anymore
-            Files.delete(FileSystems.getDefault().getPath(path));
+        if (result.length() == 0) {
+            Files.delete(FileSystems.getDefault().getPath(path)); //delete the schema if no entities reference it anymore
+            properties.remove(methodSchema); //and the corresponding entry
         } else {
-            ((ObjectNode)schema).put("usedBy", usedBy);
-            //update the file
-            try (JsonGenerator generator = jsonFactory.createGenerator(FileSystems.getDefault().getPath(path).toFile(), JsonEncoding.UTF8)) {
-                generator.useDefaultPrettyPrinter();
-                mapper.writeTree(generator, schema);
-            }
+            result.deleteCharAt(result.length() - 1); //delete the comma at the end
+            properties.setProperty(methodSchema, result.toString());
         }
     }
 }

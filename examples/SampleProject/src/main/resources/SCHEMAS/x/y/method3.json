@@ -13,7 +13,6 @@
       "type" : "string"
     }
   },
-  "required" : [ "p1", "p2", "p3" ],
-  "additionalProperties" : false,
-  "usedBy" : [ "ENTITIES.x.y.EntityC", "ENTITIES.EntityA" ]
+  "required" : ["p1", "p2", "p3" ],
+  "additionalProperties" : false
 }

@@ -8,6 +8,5 @@
     }
   },
   "required" : ["parameter" ],
-  "additionalProperties" : false,
-  "usedBy" : [ "ENTITIES.EntityA" ]
+  "additionalProperties" : false
 }

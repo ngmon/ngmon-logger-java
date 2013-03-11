@@ -10,7 +10,6 @@
       "type" : "boolean"
     }
   },
-  "required" : [ "param1", "param2" ],
-  "additionalProperties" : false,
-  "usedBy" : [ "ENTITIES.x.y.EntityC", "ENTITIES.EntityA", "ENTITIES.EntityB" ]
+  "required" : ["param1", "param2" ],
+  "additionalProperties" : false
 }
