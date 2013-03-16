@@ -51,7 +51,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private static final String ENTITIES_BASE_PKG = "ENTITIES";
     private static final String EVENTTYPES_BASE_PKG = "SCHEMAS";
     private static final String CLASSES_BASE_PKG = "LOGGER";
-    private static final String LOGGER = "Logger";
     private static final String CLASS_PREFIX = "L_";
     private final String configPath = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + "config.properties";
     
@@ -114,7 +113,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                 String pack = element.getEnclosingElement().toString();
                 String elementName = element.getSimpleName().toString();
                 
-                if (newClasses.contains(pack + "." + elementName) || elementName.equals(LOGGER)) {
+                if (newClasses.contains(pack + "." + elementName)) {
                     continue;
                 }
                 
@@ -373,29 +372,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
         }
         
         if (firstRound) {
-            if (! Files.exists(FileSystems.getDefault().getPath("src" + File.separator + "main" + File.separator + "java" +
-                    File.separator + CLASSES_BASE_PKG + File.separator + LOGGER + ".java"))) {
-                String loggerContent = "package LOGGER;\n\n"
-                                     + "import java.util.HashMap;\n"
-                                     + "import java.util.Map;\n\n"
-                                     + "public class " + LOGGER + " {\n\n"
-                                     + "    public static void log(String[] names, Object... values) {\n"
-                                     + "        Map<String, Object> map = new HashMap<>();\n\n"
-                                     + "        for (int i = 0; i < names.length; i++) {\n"
-                                     + "            map.put(names[i], values[i]);\n"
-                                     + "        }\n"
-                                     + "    }\n"
-                                     + "}\n";
-                try {
-                    filer.createSourceFile(CLASSES_BASE_PKG + "." + LOGGER)
-                            .openWriter()
-                            .append(loggerContent)
-                            .close();
-                } catch (IOException ex) {
-                    messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + CLASSES_BASE_PKG + "." + LOGGER);
-                }
-            }
-            
             String entitiesDir = "src" + File.separator + "main" + File.separator + "resources" + File.separator + ENTITIES_BASE_PKG;
             final int entitiesDirLength = entitiesDir.length();
             final List<String> processed = processedClasses;
@@ -424,13 +400,17 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                 String className = CLASS_PREFIX + filename.substring(0, 1).toUpperCase() + filename.substring(1, filename.length() - 5);
                                 
                                 StringBuilder classBeginning = new StringBuilder();
-                                classBeginning.append("package ").append(CLASSES_BASE_PKG).append(classPackage).append(";\n\n");
-                                if (! classPackage.equals("")) {
-                                    classBeginning.append("import ").append(CLASSES_BASE_PKG).append(".").append(LOGGER).append(";\n");
-                                }
+                                classBeginning.append("package ").append(CLASSES_BASE_PKG).append(classPackage).append(";\n\n")
+                                        .append("import cz.muni.fi.logger.Logger;\n");
                                 
                                 StringBuilder classContent = new StringBuilder();
-                                classContent.append("\npublic class ").append(className).append(" extends ").append(LOGGER).append(" {\n");
+                                classContent.append("\npublic class ").append(className).append(" extends Logger {\n")
+                                        .append("\n    private static final String SCHEMA_PACK = \"");
+                                if (classPackage.length() > 0) {
+                                    classContent.append(classPackage.substring(1));
+                                }
+                                classContent.append("\";\n")
+                                        .append("    private static final String SCHEMA_NAME = \"").append(className.substring(CLASS_PREFIX.length())).append("\";\n");
                                 
                                 ArrayNode eventTypes = (ArrayNode)(entitySchemaRoot.get("eventTypes"));
                                 //delete entities with no methods
@@ -500,7 +480,8 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                         strings += "\"" + paramName + "\"";
                                         args += ", " + paramName;
                                     }
-                                    classContent.append(") {\n        log(new String[]{").append(strings).append("}").append(args).append(");\n    }\n");
+                                    classContent.append(") {\n        log(SCHEMA_PACK, SCHEMA_NAME, \"").append(methodName)
+                                            .append("\", new String[]{").append(strings).append("}").append(args).append(");\n    }\n");
                                 }
                                 
                                 classContent.append("}\n");

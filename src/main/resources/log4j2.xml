@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appenders>
+        <File name="file" fileName="logs/app.log">
+            <PatternLayout pattern="%d %-5p %c - %m%n" />
+        </File>
+    </appenders>
+    <loggers>
+        <root level="debug">
+            <appender-ref ref="file"/>
+        </root>
+    </loggers>
+</configuration>

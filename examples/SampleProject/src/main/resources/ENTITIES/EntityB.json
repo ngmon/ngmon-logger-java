@@ -4,6 +4,6 @@
   "eventTypes" : [ {
     "method1" : "SCHEMAS.method1"
   }, {
-    "method2" : "SCHEMAS.method2_1"
+    "method2" : "SCHEMAS.method2"
   } ]
 }
