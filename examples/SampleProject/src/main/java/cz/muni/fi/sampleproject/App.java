@@ -13,6 +13,7 @@ public class App {
         SampleNamespace LOG = LoggerFactory.getLogger(SampleNamespace.class);
         
         LOG.tag("EntityXY").tag("EntityA").tag("EntityB").event1("abc", 123);
-        LOG.event1("val", 0);
+        LOG.warn().tag("EntityA").event1("val", 0);
+        LOG.event2(1.0, 10.0, true);
     }
 }
