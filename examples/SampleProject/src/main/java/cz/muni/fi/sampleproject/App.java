@@ -15,7 +15,10 @@ public class App {
         Logger.initLoggers("EntityA","x.y.EntityC");
 //        Logger.initAll();
         
-        L_EntityA.method1("abc", true);
-        L_EntityC.method3("abc", "def", "ghi");
+        L_EntityA entityA = new L_EntityA();
+        entityA.error().method1("abc", true);
+        
+        L_EntityC entityC = new L_EntityC();
+        entityC.method3("abc", "def", "ghi");
     }
 }

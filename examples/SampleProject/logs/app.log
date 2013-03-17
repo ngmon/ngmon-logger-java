@@ -1,2 +1,2 @@
-2013-03-16 22:24:39,533 DEBUG  - {"entity":"EntityA","eventType":"method1","SCHEMAS.method1.json#":{"param1":"abc","param2":true}}
-2013-03-16 22:24:39,533 DEBUG  - {"entity":"EntityC","eventType":"method3","SCHEMAS.x.y.method3.json#":{"p1":"abc","p2":"def","p3":"ghi"}}
+2013-03-17 21:00:11,186 ERROR  - {"entity":"EntityA","eventType":"method1","SCHEMAS.method1.json#":{"param1":"abc","param2":true}}
+2013-03-17 21:00:11,188 DEBUG  - {"entity":"EntityC","eventType":"method3","SCHEMAS.x.y.method3.json#":{"p1":"abc","p2":"def","p3":"ghi"}}

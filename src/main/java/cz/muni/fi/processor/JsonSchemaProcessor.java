@@ -400,11 +400,11 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                 String className = CLASS_PREFIX + filename.substring(0, 1).toUpperCase() + filename.substring(1, filename.length() - 5);
                                 
                                 StringBuilder classBeginning = new StringBuilder();
-                                classBeginning.append("package ").append(CLASSES_BASE_PKG).append(classPackage).append(";\n\n")
-                                        .append("import cz.muni.fi.logger.Logger;\n");
-                                
+                                classBeginning.append("package ").append(CLASSES_BASE_PKG).append(classPackage).append(";\n\n");
+                                                                
                                 StringBuilder classContent = new StringBuilder();
-                                classContent.append("\npublic class ").append(className).append(" extends Logger {\n")
+                                classContent.append("import cz.muni.fi.logger.Logger;\n")
+                                        .append("\npublic class ").append(className).append(" extends Logger<").append(className).append("> {\n")
                                         .append("\n    private static final String SCHEMA_PACK = \"");
                                 if (classPackage.length() > 0) {
                                     classContent.append(classPackage.substring(1));
@@ -448,7 +448,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                         classContent.append("\n    @Namespace(\"").append(targetPackage).append("\")");
                                     }
                                     
-                                    classContent.append("\n    public static void ").append(methodName).append("(");
+                                    classContent.append("\n    public void ").append(methodName).append("(");
                                     String strings = "";
                                     String args = "";
                                     while (paramsIterator.hasNext()) {

@@ -15,14 +15,52 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 
-public class Logger {
+public abstract class Logger<T extends Logger<T>> {
     
     private static org.apache.logging.log4j.Logger LOG = LogManager.getLogger("");
+    private Level level = Level.DEBUG;
     
     private static ObjectMapper mapper = new ObjectMapper();
     private static Map<String, Map<String, String>> schemas = new HashMap<>();
+    
+    @SuppressWarnings("unchecked")
+    public T fatal() {
+        level = Level.FATAL;
+        return (T) this;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public T error() {
+        level = Level.ERROR;
+        return (T) this;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public T warn() {
+        level = Level.WARN;
+        return (T) this;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public T info() {
+        level = Level.INFO;
+        return (T) this;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public T debug() {
+        level = Level.DEBUG;
+        return (T) this;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public T trace() {
+        level = Level.TRACE;
+        return (T) this;
+    }
     
     public static void initAll() {
         schemas = new HashMap<>();
@@ -71,7 +109,7 @@ public class Logger {
         }
     }
     
-    public static void log(String schemaPack, String entity, String eventType, String[] paramNames, Object... paramValues) {
+    public void log(String schemaPack, String entity, String eventType, String[] paramNames, Object... paramValues) {
         String pathToEventTypeSchema = "";
         
         String entitySchema;
@@ -106,7 +144,16 @@ public class Logger {
         
         String eventJson = JSONer.getEventJson(entity, eventType, pathToEventTypeSchema, paramNames, paramValues);
         
-        LOG.debug(eventJson); //TODO Level?
+        switch (level) {
+            case FATAL: LOG.fatal(eventJson); break;
+            case ERROR: LOG.error(eventJson); break;
+            case WARN:  LOG.warn(eventJson);  break;
+            case INFO:  LOG.info(eventJson);  break;
+            case DEBUG: LOG.debug(eventJson); break;
+            case TRACE: LOG.trace(eventJson); break;
+        }
+        
+        level = Level.DEBUG;
     }
     
 }
