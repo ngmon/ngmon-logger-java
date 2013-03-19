@@ -1,0 +1,2 @@
+2013-03-19 22:25:59,106 ERROR cz.muni.fi.sampleproject.SampleNamespace - {"tags":["entityA","entityB"],"eventType":"event1","cz.muni.fi.sampleproject.SampleNamespace.json#/definitions/event1":{"param1":"aaa","param2":222}}
+2013-03-19 22:25:59,106 DEBUG cz.muni.fi.sampleproject.SampleNamespace - {"tags":[],"eventType":"event2","cz.muni.fi.sampleproject.SampleNamespace.json#/definitions/event2":{"a":1,"b":2,"c":true}}

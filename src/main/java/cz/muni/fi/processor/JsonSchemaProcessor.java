@@ -36,7 +36,9 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -93,20 +95,34 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                         //TODO opravit to kontrolovanie pretazenych metod nizsie, aby sme to nemuseli prechadzat zbytocne aj tu?
                         Set<String> methods = new HashSet<>();
                         boolean add = true;
+                        boolean nullaryConstructor = false;
                         for (Element elem : element.getEnclosedElements()) {
-                            if (elem.getKind() == ElementKind.METHOD) {
-                                ExecutableElement method = (ExecutableElement) elem;
-                                String methodName = method.getSimpleName().toString();
-
-                                //forbid method overloading
-                                if (methods.contains(methodName)) {
-                                    messager.printMessage(Diagnostic.Kind.ERROR, "Method overloading not allowed here", elem);
-                                    add = false;
+                            switch (elem.getKind()) {
+                                case CONSTRUCTOR:
+                                    //(nullary constructor needed for creating a new instance in LoggerFactory)
+                                    ExecutableElement constructor = (ExecutableElement) elem;
+                                    if (constructor.getParameters().isEmpty() && (! constructor.getModifiers().contains(Modifier.PRIVATE))) {
+                                        nullaryConstructor = true;
+                                    }
                                     break;
-                                } else {
-                                    methods.add(methodName);
-                                }
+                                case METHOD:
+                                    ExecutableElement method = (ExecutableElement) elem;
+                                    String methodName = method.getSimpleName().toString();
+
+                                    //forbid method overloading
+                                    if (methods.contains(methodName)) {
+                                        messager.printMessage(Diagnostic.Kind.ERROR, "Method overloading not allowed here", elem);
+                                        add = false;
+                                        break;
+                                    } else {
+                                        methods.add(methodName);
+                                    }
+                                    break;
                             }
+                        }
+                        
+                        if (!nullaryConstructor) {
+                            messager.printMessage(Diagnostic.Kind.ERROR, "Namespaces must have a public nullary constructor.", element);
                         }
 
                         if (add) {
@@ -270,12 +286,11 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             }
                             
                             classBeginning.append("import cz.muni.fi.annotation.Namespace;\n");
-                            classBeginning.append("import cz.muni.fi.logger.Logger;\n");
+                            classBeginning.append("import cz.muni.fi.logger.AbstractNamespace;\n");
                             
                             StringBuilder classContent = new StringBuilder();
-                            classContent.append("\n@Namespace\npublic class ").append(className).append(" extends Logger<")
+                            classContent.append("\n@Namespace\npublic class ").append(className).append(" extends AbstractNamespace<")
                                     .append(className).append("> {\n");
-                            classContent.append("\n    private static final String FQN = ").append(className).append(".class.getCanonicalName();\n");
                             
                             JsonNode definitions = schemaRoot.get("definitions");
                             //delete schemas with no methods
@@ -322,7 +337,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     classContent.append(paramName);
                                 }
                                 //zavriet tu zatvorku za parametrami metody, dopisat telo metody
-                                classContent.append(") {\n        log(FQN, \"").append(methodName).append("\", new String[]{");
+                                classContent.append(") {\n        log(\"").append(methodName).append("\", new String[]{");
                                 putComma = false;
                                 for (int k = 0; k < paramNames.size(); k++) {
                                     if (putComma) {

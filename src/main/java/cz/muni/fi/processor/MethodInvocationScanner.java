@@ -13,10 +13,10 @@ import javax.lang.model.element.Element;
 
 public class MethodInvocationScanner extends TreeScanner<Void, Element> {
     
-    private Map<String, Set<String>> entitiesMap = new HashMap<>();
+    private Map<String, Set<String>> tagsMap = new HashMap<>();
     
-    public Map<String, Set<String>> getEntitiesMap() {
-        return entitiesMap;
+    public Map<String, Set<String>> getTagsMap() {
+        return tagsMap;
     }
     
     @Override
@@ -34,18 +34,18 @@ public class MethodInvocationScanner extends TreeScanner<Void, Element> {
                         break;
                     }
                     object = methodSel.getExpression();
-                    String entity = miTree.getArguments().get(0).toString();
-                    if ((entity.length() >=2) && entity.startsWith("\"") && entity.endsWith("\"")) {
-                        entity = entity.substring(1, entity.length()-1);
+                    String tag = miTree.getArguments().get(0).toString();
+                    if ((tag.length() >=2) && tag.startsWith("\"") && tag.endsWith("\"")) {
+                        tag = tag.substring(1, tag.length()-1);
                     }
                     
-                    Set<String> set = entitiesMap.get(entity);
+                    Set<String> set = tagsMap.get(tag);
                     if (set != null) {
                         set.add(methodName);
                     } else {
                         set = new HashSet<>();
                         set.add(methodName);
-                        entitiesMap.put(entity, set);
+                        tagsMap.put(tag, set);
                     }
                 } else {
                     break;
