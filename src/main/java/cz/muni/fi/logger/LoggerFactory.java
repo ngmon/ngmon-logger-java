@@ -2,9 +2,10 @@ package cz.muni.fi.logger;
 
 public class LoggerFactory {
     
-    public static <T extends AbstractNamespace<T>> Logger<T> getLogger(Class<T> c) {
+    public static <T extends AbstractNamespace> T getLogger(Class<T> c) {
         try {
-            Logger<T> logger = new Logger<>(c, c.newInstance());
+            T logger = c.newInstance();
+            logger.setLoggerName(c.getCanonicalName());
             return logger;
         } catch (InstantiationException | IllegalAccessException ex) {
             //TODO...

@@ -1,6 +1,5 @@
 package cz.muni.fi.sampleproject;
 
-import cz.muni.fi.logger.Logger;
 import cz.muni.fi.logger.LoggerFactory;
 
 /**
@@ -11,8 +10,9 @@ public class App {
     public static void main(String[] args) {
         System.out.println("Hello World!");
         
-        Logger<SampleNamespace> LOG = LoggerFactory.getLogger(SampleNamespace.class);
-        LOG.error().tag("entityA").tag("entityB").event1("aaa", 222);
-        LOG.debug().event2(1, 2, true);
+        SampleNamespace LOG = LoggerFactory.getLogger(SampleNamespace.class);
+        LOG.event1("abc", 123).tag("EntityA").tag("EntityB").log();
+        LOG.event1("abc", 123).tag("EntityA").debug();
+        LOG.event1("abc", 123).error();
     }
 }

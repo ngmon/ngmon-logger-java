@@ -105,21 +105,21 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     }
                                     break;
                                 case METHOD:
-                                    ExecutableElement method = (ExecutableElement) elem;
-                                    String methodName = method.getSimpleName().toString();
+                                ExecutableElement method = (ExecutableElement) elem;
+                                String methodName = method.getSimpleName().toString();
 
-                                    //forbid method overloading
-                                    if (methods.contains(methodName)) {
-                                        messager.printMessage(Diagnostic.Kind.ERROR, "Method overloading not allowed here", elem);
-                                        add = false;
-                                        break;
-                                    } else {
-                                        methods.add(methodName);
-                                    }
+                                //forbid method overloading
+                                if (methods.contains(methodName)) {
+                                    messager.printMessage(Diagnostic.Kind.ERROR, "Method overloading not allowed here", elem);
+                                    add = false;
+                                    break;
+                                } else {
+                                    methods.add(methodName);
+                                }
                                     break;
                             }
                         }
-                        
+
                         if (!nullaryConstructor) {
                             messager.printMessage(Diagnostic.Kind.ERROR, "Namespaces must have a public nullary constructor.", element);
                         }
@@ -288,8 +288,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             classBeginning.append("import cz.muni.fi.logger.AbstractNamespace;\n");
                             
                             StringBuilder classContent = new StringBuilder();
-                            classContent.append("\n@Namespace\npublic class ").append(className).append(" extends AbstractNamespace<")
-                                    .append(className).append("> {\n");
+                            classContent.append("\n@Namespace\npublic class ").append(className).append(" extends AbstractNamespace {\n");
                             
                             JsonNode definitions = schemaRoot.get("definitions");
                             //delete schemas with no methods
@@ -302,7 +301,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             Iterator<String> methodsIterator = definitions.fieldNames();
                             while (methodsIterator.hasNext()) {
                                 String methodName = methodsIterator.next();
-                                classContent.append("\n    public void ").append(methodName).append("(");
+                                classContent.append("\n    public AbstractNamespace ").append(methodName).append("(");
                                 JsonNode method = definitions.get(methodName);
                                 JsonNode parameters = method.get("properties");
                                 Iterator<String> paramsIterator = parameters.fieldNames();
@@ -335,7 +334,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     }
                                     classContent.append(paramName);
                                 }
-                                classContent.append(") {\n        log(\"").append(methodName).append("\", new String[]{");
+                                classContent.append(") {\n        return log(\"").append(methodName).append("\", new String[]{");
                                 putComma = false;
                                 for (int k = 0; k < paramNames.size(); k++) {
                                     if (putComma) {
