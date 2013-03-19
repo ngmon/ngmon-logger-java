@@ -35,7 +35,7 @@ public class MethodInvocationScanner extends TreeScanner<Void, Element> {
                     }
                     object = methodSel.getExpression();
                     String tag = miTree.getArguments().get(0).toString();
-                    if ((tag.length() >=2) && tag.startsWith("\"") && tag.endsWith("\"")) {
+                    if ((tag.length() >= 2) && tag.startsWith("\"") && tag.endsWith("\"")) {
                         tag = tag.substring(1, tag.length()-1);
                     }
                     

@@ -28,25 +28,6 @@ public abstract class AbstractNamespace<T extends AbstractNamespace<T>> {
         return (T) this;
     }
     
-    public void log(String fqnNS, String eventType, String[] paramNames, Object... paramValues) {
-        List<String> e = new ArrayList<>();
-        e.addAll(entities);
-        entities.clear();
-        
-        String eventJson = JSONer.getEventJson(fqnNS, eventType, e, paramNames, paramValues);
-        
-        switch (level) {
-            case FATAL: LOG.fatal(eventJson); break;
-            case ERROR: LOG.error(eventJson); break;
-            case WARN:  LOG.warn(eventJson);  break;
-            case INFO:  LOG.info(eventJson);  break;
-            case DEBUG: LOG.debug(eventJson); break;
-            case TRACE: LOG.trace(eventJson); break;
-        }
-        
-        level = Level.DEBUG;
-    }
-    
     public void log(String eventType, String[] paramNames, Object... paramValues) {
         List<String> e = new ArrayList<>();
         e.addAll(entities);

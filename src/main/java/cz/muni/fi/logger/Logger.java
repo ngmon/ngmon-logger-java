@@ -13,32 +13,31 @@ public class Logger<T extends AbstractNamespace<T>> {
     }
     
     public T fatal() {
-        namespace.setLevel(Level.FATAL);
-        return namespace;
+        return namespaceWithLevel(Level.FATAL);
     }
     
     public T error() {
-        namespace.setLevel(Level.ERROR);
-        return namespace;
+        return namespaceWithLevel(Level.ERROR);
     }
     
     public T warn() {
-        namespace.setLevel(Level.WARN);
-        return namespace;
+        return namespaceWithLevel(Level.WARN);
     }
     
     public T info() {
-        namespace.setLevel(Level.INFO);
-        return namespace;
+        return namespaceWithLevel(Level.INFO);
     }
     
     public T debug() {
-        namespace.setLevel(Level.DEBUG);
-        return namespace;
+        return namespaceWithLevel(Level.DEBUG);
     }
     
     public T trace() {
-        namespace.setLevel(Level.TRACE);
+        return namespaceWithLevel(Level.TRACE);
+    }
+    
+    private T namespaceWithLevel(Level level) {
+        namespace.setLevel(level);
         return namespace;
     }
 }

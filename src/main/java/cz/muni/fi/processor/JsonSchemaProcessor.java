@@ -38,7 +38,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeKind;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -336,7 +335,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     }
                                     classContent.append(paramName);
                                 }
-                                //zavriet tu zatvorku za parametrami metody, dopisat telo metody
                                 classContent.append(") {\n        log(\"").append(methodName).append("\", new String[]{");
                                 putComma = false;
                                 for (int k = 0; k < paramNames.size(); k++) {
@@ -348,16 +346,14 @@ public class JsonSchemaProcessor extends AbstractProcessor {
 
                                     classContent.append("\"").append(paramNames.get(k)).append("\"");
                                 }
-                                //skonci pole stringov
                                 classContent.append("}");
-                                //vsetky parametre
                                 for (int k = 0; k < paramNames.size(); k++) {
                                     classContent.append(", ").append(paramNames.get(k));
                                 }
-                                classContent.append(");\n    }\n"); //uzavriet metodu
+                                classContent.append(");\n    }\n");
                             }
                             
-                            classContent.append("}\n"); //uzavriet triedu
+                            classContent.append("}\n");
 
                             JavaFileObject file = filer.createSourceFile(classPackage + "." + className);
 
