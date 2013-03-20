@@ -1,29 +1,23 @@
 package cz.muni.fi.logger;
 
 import cz.muni.fi.json.JSONer;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.logging.log4j.LogManager;
 
 public abstract class AbstractNamespace {
     
     private org.apache.logging.log4j.Logger LOG = LogManager.getLogger("");
     
-    private List<String> entities = new ArrayList<>();
     private String eventJson = "";
+    private String methodName = "";
+    private String[] paramNames = new String[]{};
     
-    public AbstractNamespace tag(String entity) {
-        entities.add(entity);
+    public AbstractNamespace tag(String tag) {
+        eventJson = JSONer.addTagToEventJson(tag, eventJson);
         return this;
     }
     
-    protected AbstractNamespace log(String eventType, String[] paramNames, Object... paramValues) {
-        List<String> e = new ArrayList<>();
-        e.addAll(entities);
-        entities.clear();
-        
-        this.eventJson = JSONer.getEventJson(LOG.getName(), eventType, e, paramNames, paramValues);
-        
+    protected AbstractNamespace log(Object... paramValues) {
+        eventJson = JSONer.getEventJson(LOG.getName(), methodName, paramNames, paramValues);
         return this;
     }
     
@@ -57,5 +51,10 @@ public abstract class AbstractNamespace {
     
     protected void setLoggerName(String name) {
         LOG = LogManager.getLogger(name);
+    }
+    
+    protected void setNames(String methodName, String[] paramNames) {
+        this.methodName = methodName;
+        this.paramNames = paramNames;
     }
 }

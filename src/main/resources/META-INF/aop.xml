@@ -1,0 +1,6 @@
+<aspectj>
+    <aspects>
+        <aspect name="cz.muni.fi.logger.MethodParamNamesAspect"/>
+    </aspects>
+    <!--weaver options="-verbose -Xset:weaveJavaxPackages=true -Xset:weaveJavaPackages=true" /--> <!-- alebo nieco podobne -->
+</aspectj>

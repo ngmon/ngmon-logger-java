@@ -2,22 +2,23 @@ package cz.muni.fi.json;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.List;
 
 public class JSONer {
     
-    public static String getEventJson(String fqnNS, String eventType, List<String> tags, String[] names, Object... values) {
+    private static ObjectMapper mapper = new ObjectMapper();
+    
+    public static String getEventJson(String fqnNS, String eventType, String[] names, Object... values) {
         JsonFactory jsonFactory = new JsonFactory();
         StringWriter writer = new StringWriter();
         try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
             json.writeStartObject();
             
             json.writeArrayFieldStart("tags");
-            for (String e : tags) {
-                json.writeString(e);
-            }
             json.writeEndArray();
             
             json.writeObjectFieldStart(fqnNS + ".json#/definitions/" + eventType);
@@ -44,5 +45,18 @@ public class JSONer {
         }
         
         return writer.toString();
+    }
+    
+    public static String addTagToEventJson(String tag, String json) {
+        try {
+            ObjectNode root = (ObjectNode) mapper.readTree(json);
+            ArrayNode tags = (ArrayNode)root.get("tags");
+            tags.add(tag);
+            root.put("tags", tags);
+            json = root.toString();
+        } catch (IOException ex) {
+        }
+        
+        return json;
     }
 }

@@ -334,20 +334,15 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     }
                                     classContent.append(paramName);
                                 }
-                                classContent.append(") {\n        return log(\"").append(methodName).append("\", new String[]{");
-                                putComma = false;
+                                classContent.append(") {\n        return log(");
+                                boolean comma = false;
                                 for (int k = 0; k < paramNames.size(); k++) {
-                                    if (putComma) {
-                                        classContent.append(",");
+                                    if (comma) {
+                                        classContent.append(", ");
                                     } else {
-                                        putComma = true;
+                                        comma = true;
                                     }
-
-                                    classContent.append("\"").append(paramNames.get(k)).append("\"");
-                                }
-                                classContent.append("}");
-                                for (int k = 0; k < paramNames.size(); k++) {
-                                    classContent.append(", ").append(paramNames.get(k));
+                                    classContent.append(paramNames.get(k));
                                 }
                                 classContent.append(");\n    }\n");
                             }
