@@ -15,51 +15,47 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 
-public abstract class Logger<T extends Logger<T>> {
+public abstract class Logger {
     
     private static org.apache.logging.log4j.Logger LOG = LogManager.getLogger("");
-    private Level level = Level.DEBUG;
     
     private static ObjectMapper mapper = new ObjectMapper();
     private static Map<String, Map<String, String>> schemas = new HashMap<>();
     
-    @SuppressWarnings("unchecked")
-    public T fatal() {
-        level = Level.FATAL;
-        return (T) this;
+    private String eventJson = "";
+    private String entity = "";
+    private String schemaPack = "";
+    private String eventType = "";
+    private String[] paramNames = new String[]{};
+    
+    public void fatal() {
+        LOG.fatal(eventJson);
     }
     
-    @SuppressWarnings("unchecked")
-    public T error() {
-        level = Level.ERROR;
-        return (T) this;
+    public void error() {
+        LOG.error(eventJson);
     }
     
-    @SuppressWarnings("unchecked")
-    public T warn() {
-        level = Level.WARN;
-        return (T) this;
+    public void warn() {
+        LOG.warn(eventJson);
     }
     
-    @SuppressWarnings("unchecked")
-    public T info() {
-        level = Level.INFO;
-        return (T) this;
+    public void info() {
+        LOG.info(eventJson);
     }
     
-    @SuppressWarnings("unchecked")
-    public T debug() {
-        level = Level.DEBUG;
-        return (T) this;
+    public void debug() {
+        LOG.debug(eventJson);
     }
     
-    @SuppressWarnings("unchecked")
-    public T trace() {
-        level = Level.TRACE;
-        return (T) this;
+    public void trace() {
+        LOG.trace(eventJson);
+    }
+
+    public void log() {
+        debug();
     }
     
     public static void initAll() {
@@ -89,7 +85,6 @@ public abstract class Logger<T extends Logger<T>> {
     }
     
     public static void initLoggers(String... entities) {
-        schemas = new HashMap<>();
         String p = "src" + File.separator + "main" + File.separator + "resources" + File.separator + "ENTITIES";
         
         for (String entity : entities) {
@@ -109,7 +104,7 @@ public abstract class Logger<T extends Logger<T>> {
         }
     }
     
-    public void log(String schemaPack, String entity, String eventType, String[] paramNames, Object... paramValues) {
+    protected Logger log(Object... paramValues) {
         String pathToEventTypeSchema = "";
         
         String entitySchema;
@@ -122,38 +117,27 @@ public abstract class Logger<T extends Logger<T>> {
         if ((schemas.get(entitySchema) != null) && (schemas.get(entitySchema).get(eventType) != null)) {
             pathToEventTypeSchema = schemas.get(entitySchema).get(eventType);
         } else {
-            try {
-                String path = "src" + File.separator + "main" + File.separator + "resources" + File.separator + "ENTITIES" 
-                        + File.separator + schemaPack.replace('.', File.separatorChar) + File.separator + entity + ".json";
-                JsonNode root = mapper.readTree(new File(path));
-
-                ArrayNode eventTypes = (ArrayNode)(root.get("eventTypes"));
-
-                for (int i = 0; i < eventTypes.size(); i++) {
-                    JsonNode methodNode = eventTypes.get(i);
-                    Iterator<String> it = methodNode.fieldNames();
-                    String methodName = it.next();
-                    if (methodName.equals(eventType)) {
-                        pathToEventTypeSchema = methodNode.get(methodName).textValue() + ".json";
-                        break;
-                    }
-                }
-            } catch (IOException e) {
+            initLoggers(entitySchema);
+            if ((schemas.get(entitySchema) != null) && (schemas.get(entitySchema).get(eventType) != null)) {
+                pathToEventTypeSchema = schemas.get(entitySchema).get(eventType);
             }
         }
         
-        String eventJson = JSONer.getEventJson(entity, eventType, pathToEventTypeSchema, paramNames, paramValues);
+        eventJson = JSONer.getEventJson(entity, eventType, pathToEventTypeSchema, paramNames, paramValues);
         
-        switch (level) {
-            case FATAL: LOG.fatal(eventJson); break;
-            case ERROR: LOG.error(eventJson); break;
-            case WARN:  LOG.warn(eventJson);  break;
-            case INFO:  LOG.info(eventJson);  break;
-            case DEBUG: LOG.debug(eventJson); break;
-            case TRACE: LOG.trace(eventJson); break;
-        }
-        
-        level = Level.DEBUG;
+        return this;
     }
-    
+
+    protected void setNames(String entity, String schemaPack, String eventType, String[] paramNames) {
+        this.entity = entity.substring(2); //odstranit prefix L_ z nazvu entity
+        
+        //odstranit prefix LOGGER z baliku
+        if (schemaPack.indexOf('.') == -1) {
+            this.schemaPack = "";
+        } else {
+            this.schemaPack = schemaPack.substring(schemaPack.indexOf('.') + 1);
+        }
+        this.eventType = eventType;
+        this.paramNames = paramNames;
+    }
 }

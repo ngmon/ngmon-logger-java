@@ -16,9 +16,9 @@ public class App {
 //        Logger.initAll();
         
         L_EntityA entityA = new L_EntityA();
-        entityA.error().method1("abc", true);
+        entityA.method1("abc", true).error();
         
         L_EntityC entityC = new L_EntityC();
-        entityC.method3("abc", "def", "ghi");
+        entityC.method3("abc", "def", "ghi").log();
     }
 }

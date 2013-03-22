@@ -404,14 +404,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                                                 
                                 StringBuilder classContent = new StringBuilder();
                                 classContent.append("import cz.muni.fi.logger.Logger;\n")
-                                        .append("\npublic class ").append(className).append(" extends Logger<").append(className).append("> {\n")
-                                        .append("\n    private static final String SCHEMA_PACK = \"");
-                                if (classPackage.length() > 0) {
-                                    classContent.append(classPackage.substring(1));
-                                }
-                                classContent.append("\";\n")
-                                        .append("    private static final String SCHEMA_NAME = \"").append(className.substring(CLASS_PREFIX.length())).append("\";\n");
-                                
+                                        .append("\npublic class ").append(className).append(" extends Logger {\n");
                                 ArrayNode eventTypes = (ArrayNode)(entitySchemaRoot.get("eventTypes"));
                                 //delete entities with no methods
                                 if (eventTypes.size() == 0) {
@@ -448,13 +441,12 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                         classContent.append("\n    @Namespace(\"").append(targetPackage).append("\")");
                                     }
                                     
-                                    classContent.append("\n    public void ").append(methodName).append("(");
-                                    String strings = "";
+                                    classContent.append("\n    public Logger ").append(methodName).append("(");
                                     String args = "";
                                     while (paramsIterator.hasNext()) {
                                         if (putComma) {
                                             classContent.append(", ");
-                                            strings += ",";
+                                            args += ", ";
                                         } else {
                                             putComma = true;
                                         }
@@ -477,11 +469,9 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                                 classContent.append("Object ");
                                         }
                                         classContent.append(paramName);
-                                        strings += "\"" + paramName + "\"";
-                                        args += ", " + paramName;
+                                        args += paramName;
                                     }
-                                    classContent.append(") {\n        log(SCHEMA_PACK, SCHEMA_NAME, \"").append(methodName)
-                                            .append("\", new String[]{").append(strings).append("}").append(args).append(");\n    }\n");
+                                    classContent.append(") {\n        return log(").append(args).append(");\n    }\n");
                                 }
                                 
                                 classContent.append("}\n");
