@@ -84,6 +84,11 @@
       <version>2.0-beta4</version>
     </dependency>
     <dependency>
+      <groupId>org.jvnet.sorcerer</groupId>
+      <artifactId>maven-sorcerer-plugin</artifactId>
+      <version>0.8</version>
+    </dependency>
+    <dependency>
       <groupId>org.aspectj</groupId>
       <artifactId>aspectjrt</artifactId>
       <version>${aspectj.version}</version>

@@ -12,8 +12,8 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <aspectj.version>1.7.2</aspectj.version>
     <java.version>1.7</java.version>
+    <aspectj.version>1.7.2</aspectj.version>
   </properties>
 
   <build>
@@ -28,8 +28,15 @@
                   
                   <!-- (by default, annotation processors put generated sources to the project output directory) -->
                   <generatedSourcesDirectory>src/main/java</generatedSourcesDirectory>
+                  
+                  <!-- uncommenting this will activate TagsProcessor and print "statistics" about logging statements used in
+                       this project (which eventTypes were tagged with which entities) to src/main/resources/tags-eventtypes.txt -->
+                  <!--annotationProcessors>
+                      <annotationProcessor>cz.muni.fi.processor.TagsProcessor</annotationProcessor>
+                  </annotationProcessors-->
               </configuration>
           </plugin>
+          
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>aspectj-maven-plugin</artifactId>

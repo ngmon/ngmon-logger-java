@@ -1,5 +1,5 @@
 <aspectj>
     <aspects>
-        <aspect name="cz.muni.fi.logger.LogMethodInfoAspect"/>
+        <aspect name="cz.muni.fi.logger.MethodParamNamesAspect"/>
     </aspects>
 </aspectj>
