@@ -41,11 +41,12 @@ import javax.lang.model.element.VariableElement;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+/**
+ * Generates JSON Schemas for @Namespace-annotated classes and vice versa.
+ */
 @SupportedAnnotationTypes("*")
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class JsonSchemaProcessor extends AbstractProcessor {
-    
-    //TODO vycistit + komentare
     
     private Filer filer;
     private Messager messager;
@@ -73,38 +74,36 @@ public class JsonSchemaProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set annotations, RoundEnvironment env) {
-        if (! env.processingOver()) {
-            if (firstRound) {
-                List<String> namespaces = new ArrayList<>();
-                for (Element element : env.getElementsAnnotatedWith(Namespace.class)) {
-                    String elementFQN = getFQN(element);
-                    namespaces.add(elementFQN);
-                    //process only classes changed since the last build
-                    String path = "src" + File.separatorChar + "main" + File.separatorChar + "java" + File.separatorChar
-                        + elementFQN.replace('.', File.separatorChar) + ".java";
-                    Path p = FileSystems.getDefault().getPath(path);
-                    long lastModified;
-                    try {
-                        lastModified = Files.getLastModifiedTime(p).toMillis();
-                    } catch (IOException ex) {
-                        lastModified = new Date().getTime();
-                    }
-                    
-                    if (lastModified > lastBuildTime) {
-                        //TODO opravit to kontrolovanie pretazenych metod nizsie, aby sme to nemuseli prechadzat zbytocne aj tu?
-                        Set<String> methods = new HashSet<>();
-                        boolean add = true;
-                        boolean nullaryConstructor = false;
-                        for (Element elem : element.getEnclosedElements()) {
-                            switch (elem.getKind()) {
-                                case CONSTRUCTOR:
-                                    //(nullary constructor needed for creating a new instance in LoggerFactory)
-                                    ExecutableElement constructor = (ExecutableElement) elem;
-                                    if (constructor.getParameters().isEmpty() && (! constructor.getModifiers().contains(Modifier.PRIVATE))) {
-                                        nullaryConstructor = true;
-                                    }
-                                    break;
-                                case METHOD:
+        if (firstRound) {
+            List<String> namespaces = new ArrayList<>();
+            for (Element element : env.getElementsAnnotatedWith(Namespace.class)) {
+                String elementFQN = getFQN(element);
+                namespaces.add(elementFQN);
+                //process only classes changed since the last build
+                String path = "src" + File.separatorChar + "main" + File.separatorChar + "java" + File.separatorChar
+                    + elementFQN.replace('.', File.separatorChar) + ".java";
+                Path p = FileSystems.getDefault().getPath(path);
+                long lastModified;
+                try {
+                    lastModified = Files.getLastModifiedTime(p).toMillis();
+                } catch (IOException ex) {
+                    lastModified = new Date().getTime();
+                }
+
+                if (lastModified > lastBuildTime) {
+                    Set<String> methods = new HashSet<>();
+                    boolean add = true;
+                    boolean nullaryConstructor = false;
+                    for (Element elem : element.getEnclosedElements()) {
+                        switch (elem.getKind()) {
+                            case CONSTRUCTOR:
+                                //(nullary constructor needed for creating a new instance in LoggerFactory)
+                                ExecutableElement constructor = (ExecutableElement) elem;
+                                if (constructor.getParameters().isEmpty() && (! constructor.getModifiers().contains(Modifier.PRIVATE))) {
+                                    nullaryConstructor = true;
+                                }
+                                break;
+                            case METHOD:
                                 ExecutableElement method = (ExecutableElement) elem;
                                 String methodName = method.getSimpleName().toString();
 
@@ -116,24 +115,25 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                 } else {
                                     methods.add(methodName);
                                 }
-                                    break;
-                            }
-                        }
-
-                        if (!nullaryConstructor) {
-                            messager.printMessage(Diagnostic.Kind.ERROR, "Namespaces must have a public nullary constructor.", element);
-                        }
-
-                        if (add) {
-                            schemasToGenerate.add(element);
+                                break;
                         }
                     }
+
+                    if (!nullaryConstructor) {
+                        messager.printMessage(Diagnostic.Kind.ERROR, "Namespaces must have a public nullary constructor.", element);
+                    }
+
+                    if (add) {
+                        schemasToGenerate.add(element);
+                    }
                 }
-                
-                generateNamespaces(namespaces);
-                firstRound = false;
             }
-        } else { //last round - generate schemas for all classes (except for those that have just been created)
+
+            generateNamespaces(namespaces);
+            firstRound = false;
+        }
+        
+        if (env.processingOver()) { //last round - generate schemas for all classes (except for those that have just been created)
             for (Element element : schemasToGenerate) {
                 String pack = element.getEnclosingElement().toString();
                 String schemaName = element.getSimpleName().toString();
@@ -167,12 +167,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             if (e.getKind() == ElementKind.METHOD) {
                                 ExecutableElement method = (ExecutableElement) e;
                                 String methodName = method.getSimpleName().toString();
-                                
-                                //forbid method overloading
-// if (methods.containsKey(methodName)) {
-// messager.printMessage(Diagnostic.Kind.ERROR, "Method overloading not allowed here", e); //TODO preco to nespoji s tym Elementom e? :(
-// //note: ten subor s json schemou bude sice validny, ale neuplny... asi na to upozornit v tej hlaske
-// }
                                 
                                 schema.writeStartObject();
                                 schema.writeStringField("$ref", "#/definitions/" + methodName);
@@ -221,7 +215,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             }
                             schema.writeEndObject(); //end properties
                             schema.writeArrayFieldStart("required");
-                            //TODO neprechadzat zbytocne znovu, ale poznacit si to uz pri vypisovani properties?
                             for (String param : method.getValue().keySet()) {
                                 schema.writeString(param);
                             }
@@ -232,7 +225,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                         
                         schema.writeEndObject(); //end of definitions
                         schema.writeEndObject(); //end of schema
-                        
                     }
                 } catch (IOException e) {
                     messager.printMessage(Diagnostic.Kind.ERROR, "Error writing file " + schemaName + ".json");
@@ -268,6 +260,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                     if (filename.toLowerCase().endsWith(".json")) {
                         String classPackage = path.getParent().toString().substring(schemasDir.length() + 1).replace(File.separatorChar, '.');
                         
+                        //do not rewrite existing
                         if (existingNSs.contains(classPackage + "." + filename.substring(0, filename.length()-5))) {
                             return FileVisitResult.CONTINUE;
                         }
@@ -276,32 +269,25 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                         
                         try {
                             JsonNode schemaRoot = mapper.readTree(path.toFile());
-
                             String className = filename.substring(0, 1).toUpperCase() + filename.substring(1, filename.length() - 5);
                             
-                            StringBuilder classBeginning = new StringBuilder();
+                            StringBuilder classContent = new StringBuilder();
                             if (! classPackage.equals("")) {
-                                classBeginning.append("package ").append(classPackage).append(";\n\n");
+                                classContent.append("package ").append(classPackage).append(";\n\n");
                             }
                             
-                            classBeginning.append("import cz.muni.fi.annotation.Namespace;\n");
-                            classBeginning.append("import cz.muni.fi.logger.AbstractNamespace;\n");
+                            classContent.append("import cz.muni.fi.annotation.Namespace;\n");
+                            classContent.append("import cz.muni.fi.logger.AbstractNamespace;\n");
                             
-                            StringBuilder classContent = new StringBuilder();
                             classContent.append("\n@Namespace\npublic class ").append(className).append(" extends AbstractNamespace {\n");
                             
                             JsonNode definitions = schemaRoot.get("definitions");
-                            //delete schemas with no methods
-                            if (definitions.size() == 0) {
-                                Files.delete(path);
-                                return FileVisitResult.CONTINUE;
-                            }
 
                             //generate methods
                             Iterator<String> methodsIterator = definitions.fieldNames();
                             while (methodsIterator.hasNext()) {
                                 String methodName = methodsIterator.next();
-                                classContent.append("\n public AbstractNamespace ").append(methodName).append("(");
+                                classContent.append("\n    public AbstractNamespace ").append(methodName).append("(");
                                 JsonNode method = definitions.get(methodName);
                                 JsonNode parameters = method.get("properties");
                                 Iterator<String> paramsIterator = parameters.fieldNames();
@@ -334,7 +320,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     }
                                     classContent.append(paramName);
                                 }
-                                classContent.append(") {\n return log(");
+                                classContent.append(") {\n        return log(");
                                 boolean comma = false;
                                 for (int k = 0; k < paramNames.size(); k++) {
                                     if (comma) {
@@ -344,14 +330,13 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     }
                                     classContent.append(paramNames.get(k));
                                 }
-                                classContent.append(");\n }\n");
+                                classContent.append(");\n    }\n");
                             }
                             
                             classContent.append("}\n");
 
                             JavaFileObject file = filer.createSourceFile(classPackage + "." + className);
-
-                            file.openWriter().append(classBeginning).append(classContent).close();
+                            file.openWriter().append(classContent).close();
 
                             newClasses.add(classPackage + "." + className);
                         } catch (IOException ex) {
@@ -363,7 +348,6 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                 }
             });
         } catch (IOException ex) {
-            //TODO
         }
     }
 }

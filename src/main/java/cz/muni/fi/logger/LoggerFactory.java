@@ -8,7 +8,6 @@ public class LoggerFactory {
             logger.setLoggerName(c.getCanonicalName());
             return logger;
         } catch (InstantiationException | IllegalAccessException ex) {
-            //TODO...
             return null;
         }
     }

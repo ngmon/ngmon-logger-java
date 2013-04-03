@@ -2,23 +2,33 @@ package cz.muni.fi.json;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.List;
 
 public class JSONer {
     
-    private static ObjectMapper mapper = new ObjectMapper();
+    private static JsonFactory jsonFactory = new JsonFactory();
     
-    public static String getEventJson(String fqnNS, String eventType, String[] names, Object... values) {
-        JsonFactory jsonFactory = new JsonFactory();
+    /**
+     * Returns a JSON representation of a particular instance of an event type.
+     * 
+     * @param fqnNS fully qualified name of the @Namespace-annotated class the eventType belongs to
+     * @param eventType event type (logging method name)
+     * @param tags a list of tags (e.g. entities) associated with this instance of eventType
+     * @param names names of eventType's attributes
+     * @param values values of eventType's attributes
+     * @return JSON object containing all given values
+     */
+    public static String getEventJson(String fqnNS, String eventType, List<String> tags, String[] names, Object... values) {
         StringWriter writer = new StringWriter();
         try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
             json.writeStartObject();
             
             json.writeArrayFieldStart("tags");
+            for (String t : tags) {
+                json.writeString(t);
+            }
             json.writeEndArray();
             
             json.writeObjectFieldStart(fqnNS + ".json#/definitions/" + eventType);
@@ -45,18 +55,5 @@ public class JSONer {
         }
         
         return writer.toString();
-    }
-    
-    public static String addTagToEventJson(String tag, String json) {
-        try {
-            ObjectNode root = (ObjectNode) mapper.readTree(json);
-            ArrayNode tags = (ArrayNode)root.get("tags");
-            tags.add(tag);
-            root.put("tags", tags);
-            json = root.toString();
-        } catch (IOException ex) {
-        }
-        
-        return json;
     }
 }

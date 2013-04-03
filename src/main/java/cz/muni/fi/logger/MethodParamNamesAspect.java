@@ -9,14 +9,18 @@ import org.aspectj.lang.reflect.MethodSignature;
 @Aspect
 public class MethodParamNamesAspect {
     
+    /**
+     * Intercepts execution of methods declared within @Namespace-annotated classes.
+     */
     @Pointcut("within(@cz.muni.fi.annotation.Namespace *) && execution(* *(..))")
     public void allMethodsInNamespace() {}
     
+    /**
+     * Finds out method name and its parameter names so only the values of parameters need to be sent to the logger;
+     * then returns control to the intercepted method.
+     */
     @Around("allMethodsInNamespace()")
-    //TODO vyriesit: vracat AbstractNamespace je asi odvazne, ked to tym Pointcutom nie je nijak vymedzene...
-    //(ale tak vsetky metody v @Namespace by to mali vracat, a ked sem dam Object, pokazi sa mi Fluent API :/ )
     public AbstractNamespace aroundAllMethodsInNamespace(ProceedingJoinPoint thisJoinPoint) {
-        //TODO posielat aj typy parametrov, aby sa to nemusel JSONer snazit uhadnut
         MethodSignature method = (MethodSignature) thisJoinPoint.getSignature();
         ((AbstractNamespace)(thisJoinPoint.getTarget())).setNames(method.getName(), method.getParameterNames());
         try {
