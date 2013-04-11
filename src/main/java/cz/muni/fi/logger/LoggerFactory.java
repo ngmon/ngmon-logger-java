@@ -2,7 +2,7 @@ package cz.muni.fi.logger;
 
 public class LoggerFactory {
     
-    public static <T extends AbstractNamespace> T getLogger(Class<T> c, Logger externalLogger) {
+    public static <T extends AbstractNamespace<T>> T getLogger(Class<T> c, Logger externalLogger) {
         try {
             T namespaceLogger = c.newInstance();
             namespaceLogger.setFqnNS(c.getCanonicalName());

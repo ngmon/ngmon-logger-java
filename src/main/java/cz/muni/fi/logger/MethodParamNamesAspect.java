@@ -20,13 +20,12 @@ public class MethodParamNamesAspect {
      * then returns control to the intercepted method.
      */
     @Around("allMethodsInNamespace()")
-    public AbstractNamespace aroundAllMethodsInNamespace(ProceedingJoinPoint thisJoinPoint) {
+    public void aroundAllMethodsInNamespace(ProceedingJoinPoint thisJoinPoint) {
         MethodSignature method = (MethodSignature) thisJoinPoint.getSignature();
         ((AbstractNamespace)(thisJoinPoint.getTarget())).setNames(method.getName(), method.getParameterNames());
         try {
-            return (AbstractNamespace)(thisJoinPoint.proceed(thisJoinPoint.getArgs()));
+            thisJoinPoint.proceed(thisJoinPoint.getArgs());
         } catch (Throwable ex) {
-            return null;
         }
     }
 }

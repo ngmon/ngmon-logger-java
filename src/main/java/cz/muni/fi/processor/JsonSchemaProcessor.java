@@ -252,7 +252,8 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             classContent.append(IMPORT_NAMESPACE);
                             classContent.append(IMPORT_ABSTRACTNAMESPACE);
                             
-                            classContent.append("\n@Namespace\npublic class ").append(className).append(" extends AbstractNamespace {\n");
+                            classContent.append("\n@Namespace\npublic class ").append(className).append(" extends AbstractNamespace<")
+                                    .append(className).append("> {\n");
                             
                             JsonNode definitions = schemaRoot.get("definitions");
 
@@ -260,7 +261,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                             Iterator<String> methodsIterator = definitions.fieldNames();
                             while (methodsIterator.hasNext()) {
                                 String methodName = methodsIterator.next();
-                                classContent.append("\n    public AbstractNamespace ").append(methodName).append("(");
+                                classContent.append("\n    public void ").append(methodName).append("(");
                                 JsonNode method = definitions.get(methodName);
                                 JsonNode parameters = method.get("properties");
                                 Iterator<String> paramsIterator = parameters.fieldNames();
@@ -278,7 +279,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                                     classContent.append(toJavaType(param.get("type").textValue()));
                                     classContent.append(" ").append(paramName);
                                 }
-                                classContent.append(") {\n        return log(");
+                                classContent.append(") {\n        log(");
                                 boolean comma = false;
                                 for (int k = 0; k < paramNames.size(); k++) {
                                     if (comma) {

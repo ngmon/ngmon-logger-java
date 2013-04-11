@@ -11,8 +11,8 @@ public class App {
         System.out.println("Hello World!");
         
         SampleNamespace LOG = LoggerFactory.getLogger(SampleNamespace.class, new Log4jLogger());
-        LOG.event1("abc", 123).tag("EntityA").tag("EntityB").log();
-        LOG.event1("abc", 123).tag("EntityA").log();
-        LOG.event1("abc", 123).log();
+        LOG.tag("EntityA").tag("EntityB").event1("abc", 123);
+        LOG.tag("EntityA").event1("abc", 123);
+        LOG.event1("abc", 123);
     }
 }

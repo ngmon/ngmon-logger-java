@@ -4,7 +4,7 @@ import cz.muni.fi.json.JSONer;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class AbstractNamespace {
+public abstract class AbstractNamespace<T extends AbstractNamespace<T>> {
     
     private Logger LOGGER;
     
@@ -12,19 +12,14 @@ public abstract class AbstractNamespace {
     private String methodName = "";
     private List<String> tags = new ArrayList<>();
     private String[] paramNames = new String[]{};
-    private Object[] paramValues = new Object[]{};
     
-    public AbstractNamespace tag(String tag) {
+    @SuppressWarnings("unchecked")
+    public T tag(String tag) {
         tags.add(tag);
-        return this;
+        return (T) this;
     }
     
-    protected AbstractNamespace log(Object... paramValues) {
-        this.paramValues = paramValues;
-        return this;
-    }
-    
-    public void log() {
+    protected void log(Object... paramValues) {
         String eventJson = JSONer.getEventJson(fqnNS, methodName, tags, paramNames, paramValues);
         tags.clear();
         
