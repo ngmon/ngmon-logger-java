@@ -10,9 +10,9 @@ public class App {
     public static void main(String[] args) {
         System.out.println("Hello World!");
         
-        SampleNamespace LOG = LoggerFactory.getLogger(SampleNamespace.class);
+        SampleNamespace LOG = LoggerFactory.getLogger(SampleNamespace.class, new Log4jLogger());
         LOG.event1("abc", 123).tag("EntityA").tag("EntityB").log();
-        LOG.event1("abc", 123).tag("EntityA").debug();
-        LOG.event1("abc", 123).error();
+        LOG.event1("abc", 123).tag("EntityA").log();
+        LOG.event1("abc", 123).log();
     }
 }
