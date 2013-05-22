@@ -31,7 +31,9 @@ public class JSONer {
             }
             json.writeEndArray();
             
-            json.writeObjectFieldStart(fqnNS + ".json#/definitions/" + eventType);
+            json.writeStringField("schema", fqnNS + ".json#/definitions/" + eventType);
+            
+            json.writeObjectFieldStart("properties");
             for (int i = 0; i < names.length; i++) {
                 json.writeFieldName(names[i]);
                 if (values[i] instanceof Number) {

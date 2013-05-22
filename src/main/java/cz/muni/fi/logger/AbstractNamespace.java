@@ -32,7 +32,7 @@ public abstract class AbstractNamespace {
     }
     
     protected void setFqnNS(String fqnNS) {
-        this.fqnNS = fqnNS;
+        this.fqnNS = fqnNS.replace('.', '/');
     }
     
     protected void setLogger(Logger logger) {

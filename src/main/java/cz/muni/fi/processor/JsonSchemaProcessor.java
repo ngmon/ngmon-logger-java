@@ -52,7 +52,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private Filer filer;
     private Messager messager;
     
-    private static final String EVENTS_BASE_PKG = "EVENTS";
+    private static final String EVENTS_BASE_PKG = "events";
     private static final String CONFIG_PATH = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + "config.properties";
     
     private static final String IMPORT_NAMESPACE = "import cz.muni.fi.annotation.Namespace;\n";

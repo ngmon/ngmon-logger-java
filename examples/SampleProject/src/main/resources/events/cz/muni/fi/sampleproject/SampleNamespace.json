@@ -1,0 +1,39 @@
+{
+  "$schema" : "http://json-schema.org/schema#",
+  "title" : "SampleNamespace",
+  "type" : "object",
+  "oneOf" : [ {
+    "$ref" : "#/definitions/event1"
+  }, {
+    "$ref" : "#/definitions/event2"
+  } ],
+  "definitions" : {
+    "event1" : {
+      "properties" : {
+        "param1" : {
+          "type" : "string"
+        },
+        "param2" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [ "param1", "param2" ],
+      "additionalProperties" : false
+    },
+    "event2" : {
+      "properties" : {
+        "b" : {
+          "type" : "number"
+        },
+        "c" : {
+          "type" : "boolean"
+        },
+        "a" : {
+          "type" : "number"
+        }
+      },
+      "required" : [ "b", "c", "a" ],
+      "additionalProperties" : false
+    }
+  }
+}
