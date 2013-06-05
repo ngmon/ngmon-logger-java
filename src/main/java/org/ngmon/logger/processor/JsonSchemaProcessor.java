@@ -55,7 +55,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private static final String EVENTS_BASE_PKG = "events";
     private static final String CONFIG_PATH = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + "config.properties";
     
-    private static final String IMPORT_NAMESPACE = "import org.ngmon.core.annotation.Namespace;\n";
+    private static final String IMPORT_NAMESPACE = "import org.ngmon.logger.annotation.Namespace;\n";
     private static final String IMPORT_ABSTRACTNAMESPACE = "import org.ngmon.logger.core.AbstractNamespace;\n";
     
     private long lastBuildTime = 0;
