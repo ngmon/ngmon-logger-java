@@ -1,11 +1,11 @@
-package cz.muni.fi.processor;
+package org.ngmon.logger.processor;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import cz.muni.fi.annotation.Namespace;
+import org.ngmon.logger.annotation.Namespace;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -55,8 +55,8 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private static final String EVENTS_BASE_PKG = "events";
     private static final String CONFIG_PATH = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + "config.properties";
     
-    private static final String IMPORT_NAMESPACE = "import cz.muni.fi.annotation.Namespace;\n";
-    private static final String IMPORT_ABSTRACTNAMESPACE = "import cz.muni.fi.logger.AbstractNamespace;\n";
+    private static final String IMPORT_NAMESPACE = "import org.ngmon.core.annotation.Namespace;\n";
+    private static final String IMPORT_ABSTRACTNAMESPACE = "import org.ngmon.logger.core.AbstractNamespace;\n";
     
     private long lastBuildTime = 0;
     private boolean firstRound = true;

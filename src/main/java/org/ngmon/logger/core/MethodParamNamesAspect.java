@@ -1,4 +1,4 @@
-package cz.muni.fi.logger;
+package org.ngmon.logger.core;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -12,7 +12,7 @@ public class MethodParamNamesAspect {
     /**
      * Intercepts execution of methods declared within @Namespace-annotated classes.
      */
-    @Pointcut("within(@cz.muni.fi.annotation.Namespace *) && execution(* *(..))")
+    @Pointcut("within(@org.ngmon.logger.annotation.Namespace *) && execution(* *(..))")
     public void allMethodsInNamespace() {}
     
     /**

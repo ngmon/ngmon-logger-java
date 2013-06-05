@@ -1,4 +1,4 @@
-package cz.muni.fi.json;
+package org.ngmon.logger.json;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;

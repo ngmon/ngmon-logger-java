@@ -1,4 +1,4 @@
-package cz.muni.fi.logger;
+package org.ngmon.logger.core;
 
 public class LoggerFactory {
     

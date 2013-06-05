@@ -1,6 +1,6 @@
-package cz.muni.fi.logger;
+package org.ngmon.logger.core;
 
-import cz.muni.fi.json.JSONer;
+import org.ngmon.logger.json.JSONer;
 import java.util.ArrayList;
 import java.util.List;
 

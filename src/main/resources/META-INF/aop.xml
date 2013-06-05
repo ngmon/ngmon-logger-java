@@ -1,5 +1,5 @@
 <aspectj>
     <aspects>
-        <aspect name="cz.muni.fi.logger.MethodParamNamesAspect"/>
+        <aspect name="org.ngmon.logger.core.MethodParamNamesAspect"/>
     </aspects>
 </aspectj>
