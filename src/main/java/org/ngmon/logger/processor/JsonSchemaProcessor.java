@@ -52,7 +52,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
     private Filer filer;
     private Messager messager;
     
-    private static final String EVENTS_BASE_PKG = "events";
+    private static final String EVENTS_BASE_PKG = "log_events";
     private static final String CONFIG_PATH = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar + "config.properties";
     
     private static final String IMPORT_NAMESPACE = "import org.ngmon.logger.annotation.Namespace;\n";
@@ -161,7 +161,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
             String elementFQN = getFQN(element);
             namespaces.add(elementFQN);
             //get the time of the last modification to the file
-            String path = "src" + File.separatorChar + "main" + File.separatorChar + "java" + File.separatorChar
+            String path = "src" + File.separatorChar + "main" + File.separatorChar + "java" + File.separatorChar + EVENTS_BASE_PKG + File.separatorChar
                 + elementFQN.replace('.', File.separatorChar) + ".java";
             Path p = FileSystems.getDefault().getPath(path);
             long lastModified;
@@ -231,7 +231,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
                     String filename = path.getFileName().toString();
                     
                     if (filename.toLowerCase().endsWith(".json")) {
-                        String classPackage = path.getParent().toString().substring(schemasDir.length() + 1).replace(File.separatorChar, '.');
+                        String classPackage = EVENTS_BASE_PKG + "." + path.getParent().toString().substring(schemasDir.length() + 1).replace(File.separatorChar, '.');
                         
                         //do not overwrite existing namespaces
                         if (existingNSs.contains(classPackage + "." + filename.substring(0, filename.length()-5))) {
@@ -324,8 +324,7 @@ public class JsonSchemaProcessor extends AbstractProcessor {
 
             try {
                 String path = "src" + File.separatorChar + "main" + File.separatorChar + "resources" + File.separatorChar +
-                        EVENTS_BASE_PKG + File.separatorChar + pack.replace('.', File.separatorChar) + File.separatorChar +
-                        schemaName + ".json";
+                        pack.replace('.', File.separatorChar) + File.separatorChar + schemaName + ".json";
                 Path file = FileSystems.getDefault().getPath(path);
 
                 //create non-existing directories
