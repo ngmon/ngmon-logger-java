@@ -9,8 +9,9 @@ public abstract class AbstractNamespace {
     private Logger LOGGER;
     
     private String fqnNS = "";
-    private String methodName = "";
+
     private List<String> tags = new ArrayList<>();
+	private String methodName = "";
     private String[] paramNames = new String[]{};
     private Object[] paramValues = new Object[]{};
     
@@ -18,12 +19,7 @@ public abstract class AbstractNamespace {
         tags.add(tag);
         return this;
     }
-    
-    protected AbstractNamespace log(Object... paramValues) {
-        this.paramValues = paramValues;
-        return this;
-    }
-    
+
     public void log() {
         String eventJson = JSONer.getEventJson(fqnNS, methodName, tags, paramNames, paramValues);
         tags.clear();
@@ -39,8 +35,9 @@ public abstract class AbstractNamespace {
         this.LOGGER = logger;
     }
     
-    protected void setNames(String methodName, String[] paramNames) {
+    protected void inject(String methodName, String[] paramNames, Object[] paramValues) {
         this.methodName = methodName;
         this.paramNames = paramNames;
+	    this.paramValues = paramValues;
     }
 }

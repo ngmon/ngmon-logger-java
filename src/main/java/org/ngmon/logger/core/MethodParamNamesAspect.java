@@ -16,16 +16,18 @@ public class MethodParamNamesAspect {
     public void allMethodsInNamespace() {}
     
     /**
-     * Finds out method name and its parameter names so only the values of parameters need to be sent to the logger;
-     * then returns control to the intercepted method.
+     * Finds out method name and its parameter and injects the parameters values, then returns control to the intercepted method.
      */
     @Around("allMethodsInNamespace()")
     public AbstractNamespace aroundAllMethodsInNamespace(ProceedingJoinPoint thisJoinPoint) {
+
         MethodSignature method = (MethodSignature) thisJoinPoint.getSignature();
-        ((AbstractNamespace)(thisJoinPoint.getTarget())).setNames(method.getName(), method.getParameterNames());
+        ((AbstractNamespace)(thisJoinPoint.getTarget())).inject(method.getName(), method.getParameterNames(), thisJoinPoint.getArgs());
+
         try {
-            return (AbstractNamespace)(thisJoinPoint.proceed(thisJoinPoint.getArgs()));
+            return (AbstractNamespace)(thisJoinPoint.proceed());
         } catch (Throwable ex) {
+	        ex.printStackTrace();
             return null;
         }
     }
