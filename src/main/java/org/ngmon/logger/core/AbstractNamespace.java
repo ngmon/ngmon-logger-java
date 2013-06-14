@@ -6,7 +6,7 @@ import java.util.List;
 
 public abstract class AbstractNamespace {
     
-    private Logger LOGGER;
+    private Logger logger;
     
     private String fqnNS = "";
 
@@ -24,7 +24,7 @@ public abstract class AbstractNamespace {
         String eventJson = JSONer.getEventJson(fqnNS, methodName, tags, paramNames, paramValues);
         tags.clear();
         
-        LOGGER.log(eventJson);
+        logger.log(eventJson);
     }
     
     protected void setFqnNS(String fqnNS) {
@@ -32,7 +32,7 @@ public abstract class AbstractNamespace {
     }
     
     protected void setLogger(Logger logger) {
-        this.LOGGER = logger;
+        this.logger = logger;
     }
     
     protected void inject(String methodName, String[] paramNames, Object[] paramValues) {
