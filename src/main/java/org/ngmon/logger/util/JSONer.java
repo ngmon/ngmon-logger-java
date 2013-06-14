@@ -1,4 +1,4 @@
-package org.ngmon.logger.json;
+package org.ngmon.logger.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;

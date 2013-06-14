@@ -1,6 +1,5 @@
 package org.ngmon.logger.core;
 
-import org.ngmon.logger.json.JSONer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,10 +20,8 @@ public abstract class AbstractNamespace {
     }
 
     public void log() {
-        String eventJson = JSONer.getEventJson(fqnNS, methodName, tags, paramNames, paramValues);
-        tags.clear();
-        
-        logger.log(eventJson);
+        logger.log(fqnNS, methodName, tags, paramNames, paramValues);
+	    tags.clear();
     }
     
     protected void setFqnNS(String fqnNS) {
