@@ -12,6 +12,8 @@ public abstract class AbstractNamespace {
 	private String eventName = "";
     private String[] paramNames = new String[]{};
     private Object[] paramValues = new Object[]{};
+
+    private String level = "";
     
     public AbstractNamespace tag(String tag) {
         this.tags.add(tag);
@@ -20,9 +22,26 @@ public abstract class AbstractNamespace {
 
     public void log() {
         this.logger.log(this.namespace, this.eventName, this.tags, this.paramNames, this.paramValues);
+        this.level = "";
         this.tags.clear();
     }
-    
+
+    public void debug() {
+        this.level = "DEBUG";
+    }
+    public void error() {
+        this.level = "ERROR";
+    }
+    public void info() {
+        this.level = "INFO";
+    }
+    public void trace(){
+        this.level = "TRACE";
+    }
+    public void warn() {
+        this.level = "WARN";
+    }
+
     protected void setNamespace(String namespace) {
         this.namespace = namespace;
     }
