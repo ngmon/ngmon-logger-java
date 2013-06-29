@@ -9,7 +9,7 @@ public abstract class AbstractNamespace {
     
     private String namespace = "";
     private List<String> tags = new ArrayList<>();
-	private String methodName = "";
+	private String eventName = "";
     private String[] paramNames = new String[]{};
     private Object[] paramValues = new Object[]{};
     
@@ -19,7 +19,7 @@ public abstract class AbstractNamespace {
     }
 
     public void log() {
-        this.logger.log(this.namespace, this.methodName, this.tags, this.paramNames, this.paramValues);
+        this.logger.log(this.namespace, this.eventName, this.tags, this.paramNames, this.paramValues);
         this.tags.clear();
     }
     
@@ -31,8 +31,8 @@ public abstract class AbstractNamespace {
         this.logger = logger;
     }
     
-    protected void inject(String methodName, String[] paramNames, Object[] paramValues) {
-        this.methodName = methodName;
+    protected void inject(String eventName, String[] paramNames, Object[] paramValues) {
+        this.eventName = eventName;
         this.paramNames = paramNames;
 	    this.paramValues = paramValues;
     }
