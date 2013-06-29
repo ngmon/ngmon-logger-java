@@ -2,8 +2,11 @@ package org.ngmon.logger.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.util.ISO8601Utils;
+
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.Date;
 import java.util.List;
 
 public class JSONer {
@@ -24,16 +27,21 @@ public class JSONer {
         StringWriter writer = new StringWriter();
         try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
             json.writeStartObject();
+
+            json.writeObjectFieldStart("Event");
+
+            json.writeStringField("occurenceTime", ISO8601Utils.format(new Date(System.currentTimeMillis())));
             
             json.writeArrayFieldStart("tags");
             for (String t : tags) {
                 json.writeString(t);
             }
             json.writeEndArray();
-            
-            json.writeStringField("schema", fqnNS + ".json#/definitions/" + eventType);
-            
-            json.writeObjectFieldStart("properties");
+
+            json.writeStringField("type", eventType.toUpperCase());
+
+            json.writeObjectFieldStart("_");
+            json.writeStringField("schema", fqnNS);
             for (int i = 0; i < names.length; i++) {
                 json.writeFieldName(names[i]);
                 if (values[i] instanceof Number) {
@@ -51,7 +59,9 @@ public class JSONer {
                 }
             }
             json.writeEndObject();
-            
+
+            json.writeEndObject();
+
             json.writeEndObject();
         } catch (IOException e) {
         }
