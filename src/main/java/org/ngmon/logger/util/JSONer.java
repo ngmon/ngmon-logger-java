@@ -2,11 +2,9 @@ package org.ngmon.logger.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.util.ISO8601Utils;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.Date;
 import java.util.List;
 
 public class JSONer {
@@ -30,8 +28,6 @@ public class JSONer {
 
             json.writeObjectFieldStart("Event");
 
-            json.writeStringField("occurenceTime", ISO8601Utils.format(new Date(System.currentTimeMillis())));
-            
             json.writeArrayFieldStart("tags");
             for (String t : tags) {
                 json.writeString(t);
