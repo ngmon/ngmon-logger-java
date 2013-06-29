@@ -7,25 +7,24 @@ public abstract class AbstractNamespace {
     
     private Logger logger;
     
-    private String fqnNS = "";
-
+    private String namespace = "";
     private List<String> tags = new ArrayList<>();
 	private String methodName = "";
     private String[] paramNames = new String[]{};
     private Object[] paramValues = new Object[]{};
     
     public AbstractNamespace tag(String tag) {
-        tags.add(tag);
+        this.tags.add(tag);
         return this;
     }
 
     public void log() {
-        logger.log(fqnNS, methodName, tags, paramNames, paramValues);
-	    tags.clear();
+        this.logger.log(this.namespace, this.methodName, this.tags, this.paramNames, this.paramValues);
+        this.tags.clear();
     }
     
-    protected void setFqnNS(String fqnNS) {
-        this.fqnNS = fqnNS.replace('.', '/');
+    protected void setNamespace(String namespace) {
+        this.namespace = namespace;
     }
     
     protected void setLogger(Logger logger) {

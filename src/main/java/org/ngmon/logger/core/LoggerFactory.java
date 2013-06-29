@@ -5,7 +5,7 @@ public class LoggerFactory {
     public static <T extends AbstractNamespace> T getLogger(Class<T> namespaceClass, Logger externalLogger) {
         try {
             T namespaceLogger = namespaceClass.newInstance();
-            namespaceLogger.setFqnNS(namespaceClass.getCanonicalName());
+            namespaceLogger.setNamespace(namespaceClass.getCanonicalName());
             namespaceLogger.setLogger(externalLogger);
 
             return namespaceLogger;
