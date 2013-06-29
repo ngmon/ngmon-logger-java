@@ -28,18 +28,23 @@ public abstract class AbstractNamespace {
 
     public void debug() {
         this.level = "DEBUG";
+        this.log();
     }
     public void error() {
         this.level = "ERROR";
+        this.log();
     }
     public void info() {
         this.level = "INFO";
+        this.log();
     }
     public void trace(){
         this.level = "TRACE";
+        this.log();
     }
     public void warn() {
         this.level = "WARN";
+        this.log();
     }
 
     protected void setNamespace(String namespace) {
