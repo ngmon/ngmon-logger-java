@@ -62,6 +62,7 @@ public class JSONer {
             json.writeObjectFieldStart("Event");
             json.writeStringField("type", type);
 
+            json.writeObjectFieldStart("_");
             for (Map.Entry<String, Object> objectEntry : data.entrySet()) {
 
                 if (objectEntry.getKey().equals("tags")) {
@@ -78,6 +79,10 @@ public class JSONer {
                 json.writeFieldName(objectEntry.getKey());
                 json.writeObject(objectEntry.getValue());
             }
+
+            json.writeEndObject();
+
+            json.writeEndObject();
 
             json.writeEndObject();
         } catch (IOException e) {
