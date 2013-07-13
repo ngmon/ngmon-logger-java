@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
+import java.util.Map;
 
 public class JSONer {
     
@@ -21,7 +22,7 @@ public class JSONer {
      * @param values values of eventType's attributes
      * @return JSON object containing all given values
      */
-    public static String getEventJson(String fqnNS, String eventType, List<String> tags, String[] names, Object... values) {
+    public static String getEventJson(String fqnNS, String eventType, List<String> tags, String[] names, Object[] values) {
         StringWriter writer = new StringWriter();
         try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
             json.writeStartObject();
@@ -34,25 +35,13 @@ public class JSONer {
             }
             json.writeEndArray();
 
-            json.writeStringField("type", eventType.toUpperCase());
+            json.writeStringField("type", eventType);
 
             json.writeObjectFieldStart("_");
             json.writeStringField("schema", fqnNS);
             for (int i = 0; i < names.length; i++) {
                 json.writeFieldName(names[i]);
-                if (values[i] instanceof Number) {
-                    if (((Number)values[i]).doubleValue() % 1 == 0) {
-                        json.writeNumber(((Number)values[i]).longValue());
-                    } else {
-                        json.writeNumber(((Number)values[i]).doubleValue());
-                    }
-                } else {
-                    if (values[i] instanceof Boolean) {
-                        json.writeBoolean((boolean)values[i]);
-                    } else {
-                        json.writeString(values[i].toString());
-                    }
-                }
+                json.writeObject(values[i]);
             }
             json.writeEndObject();
 
@@ -62,6 +51,38 @@ public class JSONer {
         } catch (IOException e) {
         }
         
+        return writer.toString();
+    }
+
+    public static String getEventJsonSimple(String type, Map<String,Object> data) {
+        StringWriter writer = new StringWriter();
+        try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
+            json.writeStartObject();
+
+            json.writeObjectFieldStart("Event");
+            json.writeStringField("type", type);
+
+            for (Map.Entry<String, Object> objectEntry : data.entrySet()) {
+
+                if (objectEntry.getKey().equals("tags")) {
+                    String[] tags = (String[]) objectEntry.getValue();
+                    json.writeArrayFieldStart("tags");
+                    for (String t : tags) {
+                        json.writeString(t);
+                    }
+                    json.writeEndArray();
+
+                    continue;
+                }
+
+                json.writeFieldName(objectEntry.getKey());
+                json.writeObject(objectEntry.getValue());
+            }
+
+            json.writeEndObject();
+        } catch (IOException e) {
+        }
+
         return writer.toString();
     }
 }
