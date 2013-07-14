@@ -21,7 +21,7 @@ public abstract class AbstractNamespace {
     }
 
     public void log() {
-        this.logger.log(this.namespace, this.eventName, this.tags, this.paramNames, this.paramValues, level);
+        this.logger.log(this.namespace, this.eventName, this.tags, this.paramNames, this.paramValues, this.level);
         this.level = -2147483648;
         this.tags.clear();
     }
