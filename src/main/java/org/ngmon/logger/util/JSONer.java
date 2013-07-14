@@ -36,16 +36,14 @@ public class JSONer {
             json.writeEndArray();
 
             json.writeStringField("type", eventType);
+            json.writeNumberField("level", level);
 
             json.writeObjectFieldStart("_");
             json.writeStringField("schema", fqnNS);
             for (int i = 0; i < names.length; i++) {
-                json.writeFieldName(names[i]);
-                json.writeObject(values[i]);
+                json.writeObjectField(names[i], values[i]);
             }
             json.writeEndObject();
-
-            json.writeNumberField("level", level);
 
             json.writeEndObject();
 
@@ -77,9 +75,7 @@ public class JSONer {
 
                     continue;
                 }
-
-                json.writeFieldName(objectEntry.getKey());
-                json.writeObject(objectEntry.getValue());
+                json.writeObjectField(objectEntry.getKey(), objectEntry.getValue());
             }
 
             json.writeEndObject();
