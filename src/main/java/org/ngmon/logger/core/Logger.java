@@ -4,5 +4,5 @@ import java.util.List;
 
 public interface Logger {
     
-	public void log(String fqnNS, String methodName, List<String> tags, String[] paramNames, Object[] paramValues);
+	public void log(String fqnNS, String methodName, List<String> tags, String[] paramNames, Object[] paramValues, int level);
 }

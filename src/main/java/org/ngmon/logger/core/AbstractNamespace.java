@@ -13,7 +13,7 @@ public abstract class AbstractNamespace {
     private String[] paramNames = new String[]{};
     private Object[] paramValues = new Object[]{};
 
-    private String level = "";
+    private int level = -2147483648; // Logback default constants
     
     public AbstractNamespace tag(String tag) {
         this.tags.add(tag);
@@ -21,29 +21,29 @@ public abstract class AbstractNamespace {
     }
 
     public void log() {
-        this.logger.log(this.namespace, this.eventName, this.tags, this.paramNames, this.paramValues);
-        this.level = "";
+        this.logger.log(this.namespace, this.eventName, this.tags, this.paramNames, this.paramValues, level);
+        this.level = -2147483648;
         this.tags.clear();
     }
 
     public void debug() {
-        this.level = "DEBUG";
+        this.level = 10000;
         this.log();
     }
     public void error() {
-        this.level = "ERROR";
+        this.level = 40000;
         this.log();
     }
     public void info() {
-        this.level = "INFO";
+        this.level = 20000;
         this.log();
     }
     public void trace(){
-        this.level = "TRACE";
+        this.level = 5000;
         this.log();
     }
     public void warn() {
-        this.level = "WARN";
+        this.level = 30000;
         this.log();
     }
 
