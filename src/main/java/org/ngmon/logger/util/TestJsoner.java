@@ -18,6 +18,6 @@ public class TestJsoner {
         tags.add("tag2");
         tags.add("tag3");
 
-        System.out.println(JSONer.getEventJson(fqns, method, tags, names, values));
+        System.out.println(JSONer.getEventJson(fqns, method, tags, names, values, 10));
     }
 }

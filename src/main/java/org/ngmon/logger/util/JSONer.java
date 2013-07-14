@@ -22,7 +22,7 @@ public class JSONer {
      * @param values values of eventType's attributes
      * @return JSON object containing all given values
      */
-    public static String getEventJson(String fqnNS, String eventType, List<String> tags, String[] names, Object[] values) {
+    public static String getEventJson(String fqnNS, String eventType, List<String> tags, String[] names, Object[] values, int level) {
         StringWriter writer = new StringWriter();
         try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
             json.writeStartObject();
@@ -44,6 +44,8 @@ public class JSONer {
                 json.writeObject(values[i]);
             }
             json.writeEndObject();
+
+            json.writeNumberField("level", level);
 
             json.writeEndObject();
 
