@@ -10,9 +10,9 @@ import org.aspectj.lang.reflect.MethodSignature;
 public class MethodParamNamesAspect {
     
     /**
-     * Intercepts execution of methods declared within @Namespace-annotated classes.
+     * Intercepts execution of all methods declared within subclasses of AbstractNamespace.
      */
-    @Pointcut("within(@org.ngmon.logger.annotation.Namespace *) && execution(* *(..))")
+    @Pointcut("execution(* org.ngmon.logger.core.AbstractNamespace+.*(..)) && !execution(* org.ngmon.logger.core.AbstractNamespace.*(..))")
     public void allMethodsInNamespace() {}
     
     /**
@@ -27,7 +27,7 @@ public class MethodParamNamesAspect {
         try {
             return (AbstractNamespace)(thisJoinPoint.proceed());
         } catch (Throwable ex) {
-	        ex.printStackTrace();
+	    ex.printStackTrace();
             return null;
         }
     }
