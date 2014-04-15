@@ -38,6 +38,9 @@ public abstract class AbstractNamespace {
     public void warn() {
         this.log(30000);
     }
+	public void fatal() {
+		this.log(50000);
+	}
 
     protected void setNamespace(String namespace) {
         this.namespace = namespace;
