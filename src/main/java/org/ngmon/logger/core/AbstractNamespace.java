@@ -1,5 +1,7 @@
 package org.ngmon.logger.core;
 
+import org.ngmon.logger.level.Level;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,28 +20,28 @@ public abstract class AbstractNamespace {
         return this;
     }
 
-    public void log(int level) {
+    public void log(Level level) {
         this.logger.log(this.namespace, this.eventName, this.tags, this.paramNames, this.paramValues, level);
         this.tags.clear();
     }
 
     public void debug() {
-        this.log(10000);
+        this.log(Level.DEBUG);
     }
     public void error() {
-        this.log(40000);
+        this.log(Level.ERROR);
     }
     public void info() {
-        this.log(20000);
+        this.log(Level.INFO);
     }
     public void trace(){
-        this.log(5000);
+        this.log(Level.TRACE);
     }
     public void warn() {
-        this.log(30000);
+        this.log(Level.WARN);
     }
 	public void fatal() {
-		this.log(50000);
+		this.log(Level.FATAL);
 	}
 
     protected void setNamespace(String namespace) {

@@ -1,5 +1,7 @@
 package org.ngmon.logger.util;
 
+import org.ngmon.logger.level.Level;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,6 +20,6 @@ public class TestJsoner {
         tags.add("tag2");
         tags.add("tag3");
 
-        System.out.println(JSONer.getEventJson(fqns, method, tags, names, values, 10));
+        System.out.println(JSONer.getEventJson(fqns, method, tags, names, values, Level.DEBUG));
     }
 }

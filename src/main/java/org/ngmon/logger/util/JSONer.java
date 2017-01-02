@@ -2,6 +2,7 @@ package org.ngmon.logger.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import org.ngmon.logger.level.Level;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -22,7 +23,7 @@ public class JSONer {
      * @param values values of eventType's attributes
      * @return JSON object containing all given values
      */
-    public static String getEventJson(String fqnNS, String eventType, List<String> tags, String[] names, Object[] values, int level) {
+    public static String getEventJson(String fqnNS, String eventType, List<String> tags, String[] names, Object[] values, Level level) {
         StringWriter writer = new StringWriter();
         try (JsonGenerator json = jsonFactory.createGenerator(writer)) {
             json.writeStartObject();
@@ -36,7 +37,7 @@ public class JSONer {
             json.writeEndArray();
 
             json.writeStringField("type", eventType);
-            json.writeNumberField("level", level);
+            json.writeStringField("level", level.toString());
 
             json.writeObjectFieldStart("_");
             json.writeStringField("schema", fqnNS);
