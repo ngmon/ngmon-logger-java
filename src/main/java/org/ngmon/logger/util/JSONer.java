@@ -2,6 +2,7 @@ package org.ngmon.logger.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.ngmon.logger.level.Level;
 
 import java.io.IOException;
@@ -11,7 +12,7 @@ import java.util.Map;
 
 public class JSONer {
 
-    private static JsonFactory jsonFactory = new JsonFactory();
+    private static JsonFactory jsonFactory = new JsonFactory(new ObjectMapper());
 
     /**
      * Returns a JSON representation of a particular instance of an event type.
