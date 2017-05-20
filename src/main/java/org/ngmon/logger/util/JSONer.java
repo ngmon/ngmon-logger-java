@@ -38,9 +38,9 @@ public class JSONer {
 
             json.writeStringField("type", eventType);
             json.writeStringField("level", level.toString());
-
-            json.writeObjectFieldStart("_");
             json.writeStringField("schema", fqnNS);
+            json.writeObjectFieldStart("_");
+
             for (int i = 0; i < names.length; i++) {
                 json.writeObjectField(names[i], values[i]);
             }
