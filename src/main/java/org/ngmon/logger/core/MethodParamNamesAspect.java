@@ -1,8 +1,10 @@
 package org.ngmon.logger.core;
 
+import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
 
@@ -18,17 +20,10 @@ public class MethodParamNamesAspect {
     /**
      * Finds out method name and its parameter and injects the parameters values, then returns control to the intercepted method.
      */
-    @Around("allMethodsInNamespace()")
-    public AbstractNamespace aroundAllMethodsInNamespace(ProceedingJoinPoint thisJoinPoint) {
+    @Before("allMethodsInNamespace()")
+    public void beforeAllMethodsInNamespace(JoinPoint joinPoint) {
 
-        MethodSignature method = (MethodSignature) thisJoinPoint.getSignature();
-        ((AbstractNamespace)(thisJoinPoint.getTarget())).inject(method.getName(), method.getParameterNames(), thisJoinPoint.getArgs());
-
-        try {
-            return (AbstractNamespace)(thisJoinPoint.proceed());
-        } catch (Throwable ex) {
-	    ex.printStackTrace();
-            return null;
-        }
+        MethodSignature method = (MethodSignature) joinPoint.getSignature();
+        ((AbstractNamespace)(joinPoint.getTarget())).inject(method.getName(), method.getParameterNames(), joinPoint.getArgs());
     }
 }
